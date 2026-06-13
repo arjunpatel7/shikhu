@@ -1,8 +1,10 @@
-# Project Shikhu
+# Shikhu
 
 [![CI](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml/badge.svg)](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml)
 
-Project Shikhu helps you learn your codebases that you generate with AI.
+Shikhu helps you learn your codebases that you generate with AI.
+
+It's a **command-line tool** plus a companion **`/shikhu-study` skill** for your coding agent: the CLI generates quizzes from your code and tracks your understanding, and the skill tutors you through the files you want to learn.
 
 Use shikhu to study your codebase, track your understanding, and increase your understanding of your code. Shikhu does this by learning about your files, generating quizzes for you to take, and even by helping you study the code after you make it.
 
@@ -14,7 +16,7 @@ Think test coverage, but for your brain!
 
 Prerequisites:
 - An **Inception API key** (required). This gives you access to fast, text-diffusion models for question generation and summarization. You can get one for free at [Inception Labs](https://platform.inceptionlabs.ai/).
-- A **skill-compatible coding agent** like Claude Code, Codex, or Cursor (strongly recommended). The core loop — `refresh`, `quiz`, `coverage` — runs entirely in your terminal, but Shikhu really shines when paired with the `/study` skill (step 5): it turns "I don't get this file" into a guided walkthrough *and* feeds your weak spots back into future quizzes.
+- A **skill-compatible coding agent** like Claude Code, Codex, or Cursor (strongly recommended). The core loop — `refresh`, `quiz`, `coverage` — runs entirely in your terminal, but Shikhu really shines when paired with the `/shikhu-study` skill (step 5): it turns "I don't get this file" into a guided walkthrough *and* feeds your weak spots back into future quizzes.
 
 ### 1. Install
 
@@ -40,7 +42,7 @@ Get a key at [Inception Labs](https://platform.inceptionlabs.ai/).
 shikhu init
 ```
 
-This creates a database and a `.quizignore` file (like `.gitignore` but for quiz generation). Add files to the latter to avoid getting quizzed on them, like config or docfiles.
+This creates a database and a `.quizignore` file (like `.gitignore` but for quiz generation). Add files to the latter to avoid getting quizzed on them, like config or docfiles. It also installs the `/shikhu-study` skill into your agent's skills directory (pass `--no-skill` to skip, or run `shikhu install-skill` yourself later).
 
 ### 3. Generate questions
 
@@ -52,7 +54,7 @@ shikhu refresh
 
 Shikhu scans your tracked files, checks for stale questions, and generates new ones using the Mercury API. Files matching `.quizignore` patterns are skipped.
 
-Under the hood, `refresh` runs two passes in parallel: **summaries** (a cached Mercury summary per file, used to seed question generation and to feed `/study`) and **questions** (one batch per file). Both skip files whose content hash and prompt version haven't changed, so re-running `refresh` after a small edit only regenerates the files that actually changed. If you only want to refresh summaries, run `shikhu summarize`; tune parallelism with `--summary-workers` (default 8).
+Under the hood, `refresh` runs two passes in parallel: **summaries** (a cached Mercury summary per file, used to seed question generation and to feed `/shikhu-study`) and **questions** (one batch per file). Both skip files whose content hash and prompt version haven't changed, so re-running `refresh` after a small edit only regenerates the files that actually changed. If you only want to refresh summaries, run `shikhu summarize`; tune parallelism with `--summary-workers` (default 8).
 
 ### 4. Take a quiz
 
@@ -74,9 +76,9 @@ You'll get multiple-choice questions about your code. After each answer you can 
 
 Golden questions get special treatment. If a file changes after you mastered it, those goldens are flagged for **re-validation**: they come up first in your next quiz so you can prove the change didn't break your understanding. Answer correctly and they go back to golden + fresh; answer wrong and they lose golden status (your coverage updates accordingly).
 
-### 5. Drill weak spots with `/study` (optional)
+### 5. Drill weak spots with `/shikhu-study` (optional)
 
-When a quiz surfaces a file you don't really understand, use the project's `/study` skill (inside your agent) to walk through it. The skill loads a cached summary, takes you through the file, and **logs every conceptual question you ask** to the database.
+When a quiz surfaces a file you don't really understand, use the `/shikhu-study` skill (installed by `shikhu init`, inside your agent) to walk through it. The skill loads a cached summary, takes you through the file, and **logs every conceptual question you ask** to the database.
 
 Then turn those questions into quiz questions that test the same concepts:
 
@@ -101,14 +103,15 @@ Shows which files you've mastered and which need work. Each file needs 3 golden 
 
 | Command | What it does |
 |---------|-------------|
-| `shikhu init` | Set up database, check API keys, create `.quizignore` |
+| `shikhu init` | Set up database, check API keys, create `.quizignore`, install the `/shikhu-study` skill |
+| `shikhu install-skill` | Install the `/shikhu-study` agent skill (use `--global` for all projects) |
 | `shikhu quiz` | Take a quiz (default 5 questions) |
 | `shikhu quiz --n 10` | Quiz with 10 questions |
 | `shikhu quiz --file path.py` | Quiz on a single file |
 | `shikhu refresh` | Staleness check + regenerate stale questions and summaries |
 | `shikhu summarize` | Parallel Mercury summaries for every tracked file |
 | `shikhu summarize --file path.py` | Force-regenerate summary for one file |
-| `shikhu generate-from-study path.py` | Generate quiz Qs seeded by your prior `/study` questions for that file |
+| `shikhu generate-from-study path.py` | Generate quiz Qs seeded by your prior `/shikhu-study` questions for that file |
 | `shikhu coverage` | Print knowledge-coverage report |
 | `shikhu clean` | Delete the database (asks for confirmation) |
 | `shikhu clean --yes` | Delete without confirmation |
@@ -124,7 +127,7 @@ Shows which files you've mastered and which need work. Each file needs 3 golden 
 
 4. **Staleness** — When code changes (detected via SHA-256 hashing), related questions are marked stale so your coverage stays honest.
 
-5. **Study-driven generation** — `/study` captures the conceptual questions you actually ask while learning a file. `shikhu generate-from-study` turns those into quiz questions, so the next quiz tests the gaps you surfaced — not just whatever Mercury picks from the file.
+5. **Study-driven generation** — `/shikhu-study` captures the conceptual questions you actually ask while learning a file. `shikhu generate-from-study` turns those into quiz questions, so the next quiz tests the gaps you surfaced — not just whatever Mercury picks from the file.
 
 ## Golden Questions
 

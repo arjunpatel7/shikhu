@@ -1,1 +1,1 @@
-"""Project Shikhu: knowledge coverage for your codebase."""
+"""Shikhu: knowledge coverage for your codebase."""

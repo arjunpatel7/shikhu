@@ -7,7 +7,7 @@ Sections, in file order:
     Raw prompts            insert/get/label helpers for transcript-captured prompts
     File summaries         upsert_summary, get_summary, delete_summaries_not_in
     Reviews                start_review, end_review, get_reviews_for_file
-    Review questions       log_study_question + readers for /study sessions
+    Review questions       log_study_question + readers for /shikhu-study sessions
     Attribution labels     insert/get/set helpers for prompt-to-file attribution
     Seed lookups           get_seed_texts
 
@@ -588,7 +588,7 @@ def get_study_questions(review_id: int) -> list[dict]:
 
 
 def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> list[dict]:
-    """Return conceptual questions the user asked across all /study sessions for this file, oldest first."""
+    """Return conceptual questions the user asked across all /shikhu-study sessions for this file, oldest first."""
     with _conn() as conn:
         rows = conn.execute(
             """

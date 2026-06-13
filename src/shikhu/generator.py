@@ -142,7 +142,7 @@ def generate_questions_from_study_seeds(
     file_path: str,
     num_questions: int = 3,
 ) -> tuple[Quiz, dict, list[int]] | None:
-    """Generate quiz questions seeded by the user's prior /study questions for this file.
+    """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
     Returns (quiz, stats, seed_review_question_ids) or None if no seeds / file missing."""
     from shikhu.store import get_conceptual_study_questions_for_file

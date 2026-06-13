@@ -1,6 +1,6 @@
 """shikhu study-context — print the cached summary + prior reviews for a file.
 
-Called by the /study skill so the skill doesn't need inline python one-liners.
+Called by the /shikhu-study skill so the skill doesn't need inline python one-liners.
 """
 
 import typer

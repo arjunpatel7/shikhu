@@ -3,18 +3,24 @@
 import os
 from pathlib import Path
 
+import typer
 from dotenv import load_dotenv
 
+from shikhu.commands.install_skill import SKILL_NAME, install_skill_files
 from shikhu.commands.utils import console
 from shikhu.store import init_db
 
 
-def init():
+def init(
+    no_skill: bool = typer.Option(
+        False, "--no-skill", help="Skip installing the /shikhu-study skill for your agent."
+    ),
+):
     """Set up Shikhu: create DB, check API keys, generate .quizignore."""
     load_dotenv()
 
     console.print()
-    console.print("[bold]Project Shikhu[/bold] — knowledge coverage for your codebase")
+    console.print("[bold]Shikhu[/bold] — knowledge coverage for your codebase")
     console.print()
 
     init_db()
@@ -35,6 +41,10 @@ def init():
         console.print("  [dim]>[/dim] .quizignore already exists")
 
     _ensure_gitignored()
+
+    if not no_skill:
+        for dest in install_skill_files(Path.cwd()):
+            console.print(f"  [green]>[/green] Installed /{SKILL_NAME} skill → {dest}")
 
     console.print()
     console.print(
