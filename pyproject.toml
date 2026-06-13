@@ -1,6 +1,6 @@
 [project]
 name = "shikhu"
-version = "0.1.0"
+version = "0.1.1"
 description = "Knowledge coverage for your codebase"
 readme = "README.md"
 license = "MIT"
