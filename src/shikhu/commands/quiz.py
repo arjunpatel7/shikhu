@@ -144,7 +144,7 @@ def quiz(
         choices = json.loads(q["choices"]) if isinstance(q["choices"], str) else q["choices"]
         expected = q["expected_answer"]
 
-        # Show seed context (if this question was seeded by /study questions)
+        # Show seed context (if this question was seeded by /shikhu-study questions)
         _show_seed_context(q)
 
         # Build question display
@@ -216,7 +216,7 @@ def quiz(
             elif flag == "b":
                 flag_question(q["id"], quality_flag="bad")
 
-        # Active-learning: confirm/correct low-confidence seed attributions (dormant for /study seeds)
+        # Active-learning: confirm/correct low-confidence seed attributions (dormant for /shikhu-study seeds)
         _maybe_prompt_for_attribution(q)
 
         console.print()

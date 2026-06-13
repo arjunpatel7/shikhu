@@ -8,13 +8,14 @@ from shikhu.commands.clean import clean
 from shikhu.commands.coverage import coverage
 from shikhu.commands.generate_from_study import generate_from_study
 from shikhu.commands.init import init
+from shikhu.commands.install_skill import install_skill
 from shikhu.commands.quiz import quiz
 from shikhu.commands.refresh import refresh
 from shikhu.commands.review_log import log_review, log_study_question
 from shikhu.commands.study_context import study_context
 from shikhu.commands.summarize import summarize
 
-app = typer.Typer(help="Project Shikhu: knowledge coverage for your codebase.")
+app = typer.Typer(help="Shikhu: knowledge coverage for your codebase.")
 
 
 def _version_callback(value: bool):
@@ -33,6 +34,7 @@ def _main(
 
 
 app.command()(init)
+app.command("install-skill")(install_skill)
 app.command()(quiz)
 app.command()(coverage)
 app.command()(clean)

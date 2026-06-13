@@ -1,4 +1,4 @@
-"""shikhu generate-from-study — produce quiz questions seeded by the user's prior /study questions for a file."""
+"""shikhu generate-from-study — produce quiz questions seeded by the user's prior /shikhu-study questions for a file."""
 
 import typer
 from dotenv import load_dotenv
@@ -10,13 +10,13 @@ from shikhu.store import init_db, insert_questions
 
 def generate_from_study(
     file_path: str = typer.Argument(
-        ..., help="File to generate questions for, seeded by prior /study questions."
+        ..., help="File to generate questions for, seeded by prior /shikhu-study questions."
     ),
     n: int = typer.Option(3, "--n", help="Number of questions to generate."),
 ):
-    """Generate quiz questions for FILE_PATH seeded by conceptual questions the user asked during prior /study sessions on this file.
+    """Generate quiz questions for FILE_PATH seeded by conceptual questions the user asked during prior /shikhu-study sessions on this file.
 
-    Manual trigger only. Run `/study <file>` first to capture seed questions; this command then turns those questions into quiz questions that test the same concepts."""
+    Manual trigger only. Run `/shikhu-study <file>` first to capture seed questions; this command then turns those questions into quiz questions that test the same concepts."""
     load_dotenv()
     ensure_api_key()
     init_db()
@@ -34,10 +34,10 @@ def generate_from_study(
     result = generate_questions_from_study_seeds(file_path, num_questions=n)
     if result is None:
         console.print(
-            f"[yellow]No conceptual /study questions found for {file_path}, or file is missing.[/yellow]"
+            f"[yellow]No conceptual /shikhu-study questions found for {file_path}, or file is missing.[/yellow]"
         )
         console.print(
-            "[dim]Run /study on the file first to capture some questions, then try again.[/dim]"
+            "[dim]Run /shikhu-study on the file first to capture some questions, then try again.[/dim]"
         )
         raise typer.Exit(code=1)
 
@@ -55,5 +55,5 @@ def generate_from_study(
         f"[green]>[/green] Generated [bold]{len(ids)}[/bold] question(s) for [bold]{file_path}[/bold]"
     )
     console.print(
-        f"  [dim]{stats['completion_tokens']} completion tokens, {stats['elapsed']:.1f}s · seeded by {len(seed_ids)} /study question(s)[/dim]"
+        f"  [dim]{stats['completion_tokens']} completion tokens, {stats['elapsed']:.1f}s · seeded by {len(seed_ids)} /shikhu-study question(s)[/dim]"
     )

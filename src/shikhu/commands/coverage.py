@@ -78,7 +78,7 @@ def coverage(
                 Panel(
                     body,
                     title="[bold]Study these next[/bold]",
-                    subtitle="[dim]/study <file> then `shikhu generate-from-study <file>`[/dim]",
+                    subtitle="[dim]/shikhu-study <file> then `shikhu generate-from-study <file>`[/dim]",
                     border_style="magenta",
                 )
             )

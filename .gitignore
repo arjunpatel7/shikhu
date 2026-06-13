@@ -14,6 +14,10 @@ benchmark_dataset_*.json
 .opencode/
 .claude/skills/vet/
 
+# our own /shikhu-study skill, installed locally for dogfooding — canonical
+# source lives in src/shikhu/_skill/SKILL.md and ships in the wheel
+.claude/skills/shikhu-study/
+
 # local scratch / dogfooding artifacts
 trial_run.md
 workflows.html

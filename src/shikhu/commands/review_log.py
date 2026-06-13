@@ -1,4 +1,4 @@
-"""shikhu log-review, log-study-question — persistence helpers called by the /study skill."""
+"""shikhu log-review, log-study-question — persistence helpers called by the /shikhu-study skill."""
 
 import typer
 
