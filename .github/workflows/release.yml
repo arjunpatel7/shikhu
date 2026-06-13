@@ -1,8 +1,8 @@
 name: Release
 
-# Cuts a GitHub Release when a vX.Y.Z tag is pushed (use `just release <level>`).
-# Builds the wheel + sdist and attaches them. Does NOT publish to PyPI — that's
-# blocked until the package rename (#43/#12); this is for practicing the release loop.
+# Cuts a GitHub Release + publishes to PyPI when a vX.Y.Z tag is pushed.
+# Builds the wheel + sdist, publishes to PyPI via Trusted Publishing (OIDC —
+# no API token stored), then attaches the artifacts to a GitHub Release.
 on:
   push:
     tags:
@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write   # required for gh release create
+  id-token: write   # required for PyPI Trusted Publishing (OIDC)
 
 jobs:
   release:
@@ -30,6 +31,9 @@ jobs:
 
       - name: Build wheel + sdist
         run: uv build
+
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Create GitHub release
         env:
