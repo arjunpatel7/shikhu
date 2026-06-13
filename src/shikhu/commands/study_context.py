@@ -24,7 +24,7 @@ def study_context(
     console.print(f"[bold]=== Summary for {file_path} ===[/bold]")
     if summary is None:
         console.print("[yellow]No cached summary.[/yellow]")
-        console.print(f"Run: [cyan]uv run shikhu summarize --file {file_path}[/cyan]")
+        console.print(f"Run: [cyan]shikhu summarize --file {file_path}[/cyan]")
     else:
         console.print(
             f"[dim](prompt {summary['prompt_version']}, generated {summary['generated_at']})[/dim]"

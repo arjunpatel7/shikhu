@@ -21,17 +21,17 @@ Prerequisites:
 **To use Shikhu on your own codebase** — install it as a standalone tool, then run it from inside any repo:
 
 ```bash
-uv tool install git+https://github.com/arjunpatel7/shikhu.git
+uv tool install shikhu
 ```
 
-This puts `shikhu` on your `PATH` in an isolated environment (no clash with your project's dependencies). `cd` into any repo and the commands below just work — each repo gets its own `coverage.db`, `.quizignore`, and `.env`. (`pipx install git+…` or `pip install git+…` into a virtualenv work too.)
+This puts `shikhu` on your `PATH` in an isolated environment (no clash with your project's dependencies). `cd` into any repo and the commands below just work — each repo gets its own `coverage.db`, `.quizignore`, and `.env`. (`pipx install shikhu` or `pip install shikhu` into a virtualenv work too.)
 
-Provide your Mercury API key via a `.env` file in the repo you're quizzing (auto-loaded), or export it in your shell:
+Provide your Inception API key via a `.env` file in the repo you're quizzing (auto-loaded), or export it in your shell:
 ```
 INCEPTION_API_KEY=your-key-here
 ```
 
-Get a key at [Inception Labs](https://www.inceptionlabs.ai/).
+Get a key at [Inception Labs](https://platform.inceptionlabs.ai/).
 
 
 ### 2. Initialize
