@@ -1,0 +1,18 @@
+.env
+coverage.db
+.quizignore
+__pycache__/
+.venv/
+venv/
+dist/
+benchmark_dataset_*.json
+
+# vet skill installs (per-harness, local tooling — not project deliverables)
+.agents/
+.codex/
+.opencode/
+.claude/skills/vet/
+
+# local scratch / dogfooding artifacts
+trial_run.md
+workflows.html

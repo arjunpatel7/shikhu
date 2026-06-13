@@ -1,0 +1,55 @@
+[project]
+name = "shikhu"
+version = "0.1.1"
+description = "Knowledge coverage for your codebase"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=0.84.0",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "rich>=13.0.0",
+    "typer>=0.26.2",
+]
+
+[project.scripts]
+shikhu = "shikhu.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shikhu"]
+
+[project.optional-dependencies]
+evals = [
+    "gliner2>=1.3.1",
+]
+mcp = [
+    "fastmcp[apps]>=3.3.1",
+    "mcp[cli]>=1.27.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]   # pycodestyle, pyflakes, isort, pyupgrade, bugbear
+ignore = ["E501"]                      # line length is owned by `ruff format`
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.14",
+    "ty>=0.0.40",
+]

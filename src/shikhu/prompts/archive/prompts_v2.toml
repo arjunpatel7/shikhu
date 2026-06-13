@@ -1,0 +1,27 @@
+version = "v2"
+
+[conceptual_definition]
+text = """
+Conceptual understanding means grasping the core principles, design patterns, \
+and intended usage behind tools, libraries, and architecture — the understanding \
+needed to judge whether AI-generated code is appropriate, not just functional.
+
+A good conceptual question tests WHY something is done a certain way, not WHAT \
+the code does. It should require reasoning about design decisions, trade-offs, \
+or how components interact — not just reading the code and finding a literal answer."""
+
+[file_prompt]
+text = """
+Given this code file, generate up to {n} conceptual multiple choice questions. \
+Generate fewer if the file doesn't warrant {n} distinct conceptual questions — \
+avoid redundant or trivial questions. Each question should test a different concept.
+
+Make the wrong answer choices plausible and tricky. Each distractor should sound \
+reasonable to someone who has seen the code but doesn't deeply understand the design. \
+Avoid obviously wrong choices that can be eliminated without understanding."""
+
+[log_prompt]
+text = """
+Generate a multiple choice question that assesses conceptual understanding \
+of the codebase. The following logfile is a previous conceptual engagement \
+the developer had with an AI agent. Use it as context for the question."""

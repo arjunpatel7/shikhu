@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Validate lockfile is in sync with pyproject.toml
+        run: uv lock --check
+
+      # Tests are deterministic (temp DBs, no network/API keys), so no secrets needed.
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Lint + format check (ruff)
+        run: |
+          uv run ruff check src tests
+          uv run ruff format --check src tests
+
+      - name: Type check (ty — advisory, non-blocking)
+        continue-on-error: true
+        run: uv run ty check src/
+
+      - name: Run tests
+        run: uv run pytest tests/ -v --junitxml=junit.xml
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: junit.xml
+
+  smoke-install:
+    name: Packaging smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Install wheel into clean stdlib venv
+        run: |
+          python -m venv /tmp/shikhu-smoke
+          /tmp/shikhu-smoke/bin/pip install --upgrade pip --quiet
+          /tmp/shikhu-smoke/bin/pip install dist/shikhu-*.whl
+
+      - name: shikhu --help works post-install
+        run: /tmp/shikhu-smoke/bin/shikhu --help
+
+      - name: shikhu init creates DB + .quizignore in a fresh directory
+        run: |
+          mkdir /tmp/shikhu-smoke-test
+          cd /tmp/shikhu-smoke-test
+          /tmp/shikhu-smoke/bin/shikhu init
+          test -f coverage.db
+          test -f .quizignore

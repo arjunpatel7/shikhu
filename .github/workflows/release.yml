@@ -1,0 +1,37 @@
+name: Release
+
+# Cuts a GitHub Release when a vX.Y.Z tag is pushed (use `just release <level>`).
+# Builds the wheel + sdist and attaches them. Does NOT publish to PyPI — that's
+# blocked until the package rename (#43/#12); this is for practicing the release loop.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # required for gh release create
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Tests must pass before releasing
+        run: |
+          uv sync --frozen
+          uv run pytest tests/ -q
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes
