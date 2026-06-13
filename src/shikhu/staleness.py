@@ -113,14 +113,3 @@ def mark_stale_questions() -> int:
     conn.commit()
     conn.close()
     return stale_count
-
-
-if __name__ == "__main__":
-    from shikhu.store import init_db
-
-    init_db()
-    count = mark_stale_questions()
-    if count:
-        print(f"Marked {count} question(s) as stale.")
-    else:
-        print("No questions marked stale — everything is up to date.")

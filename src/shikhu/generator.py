@@ -1,7 +1,6 @@
 ### Quiz generation Code
 
 import os
-import shutil
 import time
 import tomllib
 from pathlib import Path
@@ -52,25 +51,12 @@ class Quiz(BaseModel):
 # Prompts ship inside the package so the tool works from any cwd once installed.
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 PROMPTS_FILE = PROMPTS_DIR / "prompts.toml"
-ARCHIVE_DIR = PROMPTS_DIR / "archive"
 
 
 def load_prompts() -> dict:
-    """Load prompts from TOML. Auto-archives when version changes (dev only)."""
+    """Load prompts from the package's bundled TOML."""
     with open(PROMPTS_FILE, "rb") as f:
-        prompts = tomllib.load(f)
-
-    # auto-archive: check if this version already has an archive
-    version = prompts["version"]
-    archive_path = ARCHIVE_DIR / f"prompts_{version}.toml"
-    if not archive_path.exists():
-        try:
-            ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(PROMPTS_FILE, archive_path)
-        except OSError:
-            pass  # installed read-only (site-packages) — archiving is a dev convenience
-
-    return prompts
+        return tomllib.load(f)
 
 
 _prompts = load_prompts()
