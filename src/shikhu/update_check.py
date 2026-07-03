@@ -12,12 +12,16 @@ from datetime import UTC, datetime
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
-_CACHE_FILE = Path.home() / ".cache" / "shikhu" / "update_check.json"
 _CACHE_TTL_SECONDS = 86400  # 24 hours
 _NETWORK_TIMEOUT = 3  # seconds
 
 _result: str | None = None  # latest version from PyPI, set by background thread
 _thread: threading.Thread | None = None
+
+
+def _cache_file() -> Path:
+    """Path.home() can raise in restricted environments — resolve lazily, not at import time."""
+    return Path.home() / ".cache" / "shikhu" / "update_check.json"
 
 
 def _fetch_latest() -> str | None:
@@ -34,7 +38,7 @@ def _fetch_latest() -> str | None:
 def _load_cache() -> str | None:
     """Return cached latest version if cache is fresh, else None."""
     try:
-        data = json.loads(_CACHE_FILE.read_text())
+        data = json.loads(_cache_file().read_text())
         age = (datetime.now(UTC) - datetime.fromisoformat(data["checked_at"])).total_seconds()
         if age < _CACHE_TTL_SECONDS:
             return data["latest"]
@@ -45,8 +49,9 @@ def _load_cache() -> str | None:
 
 def _write_cache(latest: str) -> None:
     try:
-        _CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _CACHE_FILE.write_text(
+        cache_file = _cache_file()
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(
             json.dumps({"latest": latest, "checked_at": datetime.now(UTC).isoformat()})
         )
     except Exception:
