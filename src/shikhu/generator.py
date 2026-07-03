@@ -1,6 +1,7 @@
 ### Quiz generation Code
 
 import os
+import random
 import time
 import tomllib
 from pathlib import Path
@@ -218,11 +219,19 @@ def _get_unasked_counts() -> dict[str, int]:
 
 def _quiz_to_rows(quiz: Quiz) -> list[dict]:
     """Convert a Quiz model to the row format insert_questions expects."""
-    return [
-        {
-            "question_text": q.question,
-            "choices": q.choices,
-            "expected_answer": q.choices[q.correct_index],
-        }
-        for q in quiz.questions
-    ]
+    rows = []
+    for q in quiz.questions:
+        # Capture the correct answer text before shuffling so the index change doesn't matter.
+        # Mercury tends to place the correct answer in position A; shuffling here ensures
+        # the displayed letter is random across generations.
+        correct_answer = q.choices[q.correct_index]
+        choices = list(q.choices)
+        random.shuffle(choices)
+        rows.append(
+            {
+                "question_text": q.question,
+                "choices": choices,
+                "expected_answer": correct_answer,
+            }
+        )
+    return rows

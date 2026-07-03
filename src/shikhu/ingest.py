@@ -31,7 +31,7 @@ def _iter_user_prompts(transcript_path: Path):
 
     Skips: meta messages, tool_result entries, slash-command invocations, malformed lines.
     """
-    with open(transcript_path) as f:
+    with open(transcript_path, encoding="utf-8", errors="replace") as f:
         for i, line in enumerate(f):
             try:
                 d = json.loads(line)
