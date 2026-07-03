@@ -94,7 +94,7 @@ def attribute_to_file(
     Adds PROMPT_MENTION_BOOST if the prompt text mentions a tracked basename.
     Returns attributed_file=None if no file clears `threshold`.
     """
-    with open(transcript_path) as f:
+    with open(transcript_path, encoding="utf-8", errors="replace") as f:
         entries = [json.loads(line) for line in f if line.strip()]
 
     prompt_text = ""
