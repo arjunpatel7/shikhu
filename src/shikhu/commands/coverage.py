@@ -11,6 +11,7 @@ from shikhu.commands.utils import (
     get_trackable_files,
 )
 from shikhu.store import get_golden_counts, init_db
+from shikhu.update_check import print_update_nudge, start_update_check
 
 
 def coverage(
@@ -20,6 +21,7 @@ def coverage(
     ),
 ):
     """Print a knowledge-coverage report."""
+    start_update_check()
     init_db()
     trackable = get_trackable_files(extensions)
     if not trackable:
@@ -111,6 +113,7 @@ def coverage(
             console.print(f"[dim]    {f}[/dim]")
 
     console.print()
+    print_update_nudge()
 
 
 def _progress_str(current: int, target: int) -> str:
