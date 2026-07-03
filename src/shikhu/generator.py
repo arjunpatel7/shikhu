@@ -227,9 +227,11 @@ def _quiz_to_rows(quiz: Quiz) -> list[dict]:
         correct_answer = q.choices[q.correct_index]
         choices = list(q.choices)
         random.shuffle(choices)
-        rows.append({
-            "question_text": q.question,
-            "choices": choices,
-            "expected_answer": correct_answer,
-        })
+        rows.append(
+            {
+                "question_text": q.question,
+                "choices": choices,
+                "expected_answer": correct_answer,
+            }
+        )
     return rows

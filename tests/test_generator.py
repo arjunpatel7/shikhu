@@ -40,7 +40,9 @@ def test_shuffle_varies_position():
     40 trials is (1/4)^40 — astronomically unlikely if shuffle is truly random.
     """
     positions = {_quiz_to_rows(_make_quiz(0))[0]["choices"].index("Alpha") for _ in range(40)}
-    assert len(positions) > 1, "Correct answer always shuffled to the same position — shuffle broken"
+    assert len(positions) > 1, (
+        "Correct answer always shuffled to the same position — shuffle broken"
+    )
 
 
 def test_all_choices_preserved():

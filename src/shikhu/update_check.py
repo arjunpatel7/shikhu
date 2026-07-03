@@ -85,6 +85,7 @@ def print_update_nudge() -> None:
     try:
         current = _pkg_version("shikhu")
         from packaging.version import Version
+
         if Version(_result) > Version(current):
             print(
                 f"\n  A new version of shikhu is available: {current} → {_result}\n"
