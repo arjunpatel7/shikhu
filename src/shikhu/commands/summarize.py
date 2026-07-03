@@ -90,6 +90,7 @@ def summarize(
         console=console,
     ) as progress:
         task = progress.add_task("Summarizing", total=len(targets))
+        generated_paths: list[str] = []
         error_details: list[tuple[str, str]] = []
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(_summarize_one, path, force): path for path in targets}
@@ -97,6 +98,7 @@ def summarize(
                 path, status, detail = fut.result()
                 if status == "generated":
                     generated += 1
+                    generated_paths.append(path)
                 elif status == "fresh":
                     fresh += 1
                 elif status == "error":
@@ -106,6 +108,9 @@ def summarize(
                     missing += 1
                 progress.update(task, advance=1, description=f"Summarizing [dim]{path}[/dim]")
 
+    console.print()
+    for path in generated_paths:
+        console.print(f"  [green]✓[/green] {path}")
     for path, detail in error_details:
         console.print(f"  [red]x[/red] {path} — [dim]{detail}[/dim]")
 

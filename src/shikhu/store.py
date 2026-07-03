@@ -192,7 +192,7 @@ def read_file_lines(
     Returns None if file doesn't exist."""
     if not os.path.isfile(file_path):
         return None
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
     if line_start is not None and line_end is not None:
         lines = lines[max(0, line_start - 1) : line_end]
