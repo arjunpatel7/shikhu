@@ -8,7 +8,7 @@ import json
 import sys
 import threading
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
@@ -35,7 +35,7 @@ def _load_cache() -> str | None:
     """Return cached latest version if cache is fresh, else None."""
     try:
         data = json.loads(_CACHE_FILE.read_text())
-        age = (datetime.now(timezone.utc) - datetime.fromisoformat(data["checked_at"])).total_seconds()
+        age = (datetime.now(UTC) - datetime.fromisoformat(data["checked_at"])).total_seconds()
         if age < _CACHE_TTL_SECONDS:
             return data["latest"]
     except Exception:
@@ -47,7 +47,7 @@ def _write_cache(latest: str) -> None:
     try:
         _CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _CACHE_FILE.write_text(
-            json.dumps({"latest": latest, "checked_at": datetime.now(timezone.utc).isoformat()})
+            json.dumps({"latest": latest, "checked_at": datetime.now(UTC).isoformat()})
         )
     except Exception:
         pass
