@@ -1,7 +1,7 @@
 """shikhu generate-from-study — produce quiz questions seeded by the user's prior /shikhu-study questions for a file."""
 
 import typer
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.utils import console, ensure_api_key
 from shikhu.ingest import ingest_recent
@@ -17,7 +17,7 @@ def generate_from_study(
     """Generate quiz questions for FILE_PATH seeded by conceptual questions the user asked during prior /shikhu-study sessions on this file.
 
     Manual trigger only. Run `/shikhu-study <file>` first to capture seed questions; this command then turns those questions into quiz questions that test the same concepts."""
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True))
     ensure_api_key()
     init_db()
     try:

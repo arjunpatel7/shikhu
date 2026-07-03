@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import typer
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.install_skill import SKILL_NAME, install_skill_files
 from shikhu.commands.utils import console
@@ -17,7 +17,9 @@ def init(
     ),
 ):
     """Set up Shikhu: create DB, check API keys, generate .quizignore."""
-    load_dotenv()
+    # find_dotenv(usecwd=True): load_dotenv() otherwise searches upward from this
+    # installed package's own file location, not the user's working directory.
+    load_dotenv(find_dotenv(usecwd=True))
 
     console.print()
     console.print("[bold]Shikhu[/bold] — knowledge coverage for your codebase")
