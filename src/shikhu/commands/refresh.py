@@ -3,7 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import typer
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from shikhu.commands.summarize import _summarize_one
@@ -26,7 +26,7 @@ def refresh(
     ),
 ):
     """Check staleness, regenerate questions + summaries, print summary."""
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True))
     ensure_api_key()
     init_db()
     try:

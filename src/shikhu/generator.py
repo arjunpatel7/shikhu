@@ -7,13 +7,15 @@ import tomllib
 from pathlib import Path
 
 import requests
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, Field
 
 from shikhu.store import read_file_lines
 
 # Load .env at import so INCEPTION_API_KEY is present before any request is made.
-load_dotenv()
+# find_dotenv(usecwd=True): load_dotenv() otherwise searches upward from this
+# installed package's own file location, not the user's working directory.
+load_dotenv(find_dotenv(usecwd=True))
 
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
