@@ -21,3 +21,6 @@ benchmark_dataset_*.json
 # local scratch / dogfooding artifacts
 trial_run.md
 workflows.html
+
+# Personal notes
+personal-notes/
