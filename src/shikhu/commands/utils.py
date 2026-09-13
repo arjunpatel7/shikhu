@@ -41,6 +41,33 @@ def ensure_api_key() -> None:
     raise typer.Exit(code=1)
 
 
+def _git_lines(*args: str) -> list[str]:
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def changed_files(base: str, extensions: str = DEFAULT_EXTENSIONS) -> list[str]:
+    """Trackable files changed on this branch since `base`, plus uncommitted edits.
+
+    Uses the merge base (`base...HEAD`), so commits that landed on `base` after
+    branching don't count. Deleted files are excluded. Exits with an error if
+    `base` isn't a valid commit."""
+    verify = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"],
+        capture_output=True,
+        text=True,
+    )
+    if verify.returncode != 0:
+        console.print(f"[red]Unknown git ref for --since:[/red] [bold]{base}[/bold]")
+        raise typer.Exit(code=2)
+
+    changed = set(_git_lines("diff", "--name-only", "--diff-filter=d", f"{base}...HEAD"))
+    changed |= set(_git_lines("diff", "--name-only", "--diff-filter=d", "HEAD"))
+    return [f for f in get_trackable_files(extensions) if f in changed]
+
+
 def get_trackable_files(
     extensions: str = DEFAULT_EXTENSIONS,
     quizignore_path: Path | None = None,

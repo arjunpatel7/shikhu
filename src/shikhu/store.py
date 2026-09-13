@@ -292,25 +292,38 @@ def get_unlabeled_questions(limit: int = 50) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_unasked_questions(limit: int = 10, file_path: str | None = None) -> list[dict]:
-    """Get unasked questions, optionally filtered to a single file."""
+def _paths_filter(file_paths: list[str] | None) -> tuple[str, tuple]:
+    """SQL fragment + params restricting to file_paths. None means no restriction."""
+    if file_paths is None:
+        return "", ()
+    if not file_paths:
+        return " AND 0", ()  # explicit empty scope matches nothing
+    return f" AND file_path IN ({','.join('?' * len(file_paths))})", tuple(file_paths)
+
+
+def get_unasked_questions(limit: int = 10, file_paths: list[str] | None = None) -> list[dict]:
+    """Get unasked questions, optionally restricted to file_paths.
+
+    A single file returns its questions in biased order; otherwise one biased-random
+    question per file is picked, then biased-shuffled across files and limited."""
+    cols = "id, file_path, question_text, choices, expected_answer, line_start, line_end, seed_query_ids, seed_query_source"
+    scope, params = _paths_filter(file_paths)
     with _conn() as conn:
-        if file_path:
+        if file_paths is not None and len(file_paths) == 1:
             rows = conn.execute(
                 f"""
-                SELECT id, file_path, question_text, choices, expected_answer, line_start, line_end, seed_query_ids, seed_query_source
+                SELECT {cols}
                 FROM questions
-                WHERE answered_at IS NULL AND stale = FALSE AND file_path = ?
+                WHERE answered_at IS NULL AND stale = FALSE{scope}
                 ORDER BY {_SEED_BIAS_SQL}
                 LIMIT ?
             """,
-                (file_path, limit),
+                (*params, limit),
             ).fetchall()
         else:
-            # Pick one biased-random unasked question per file, then biased-shuffle across files and limit
             rows = conn.execute(
                 f"""
-                SELECT id, file_path, question_text, choices, expected_answer, line_start, line_end, seed_query_ids, seed_query_source
+                SELECT {cols}
                 FROM questions
                 WHERE id IN (
                     SELECT id FROM (
@@ -318,13 +331,13 @@ def get_unasked_questions(limit: int = 10, file_path: str | None = None) -> list
                             PARTITION BY file_path ORDER BY {_SEED_BIAS_SQL}
                         ) as rn
                         FROM questions
-                        WHERE answered_at IS NULL AND stale = FALSE
+                        WHERE answered_at IS NULL AND stale = FALSE{scope}
                     ) WHERE rn = 1
                 )
                 ORDER BY {_SEED_BIAS_SQL}
                 LIMIT ?
             """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
     return [dict(r) for r in rows]
 
@@ -363,7 +376,7 @@ def get_golden_counts() -> dict[str, int]:
     return {row["file_path"]: row["cnt"] for row in rows}
 
 
-def get_revalidation_questions(limit: int = 10, file_path: str | None = None) -> list[dict]:
+def get_revalidation_questions(limit: int = 10, file_paths: list[str] | None = None) -> list[dict]:
     """Golden questions whose file changed, awaiting re-validation.
 
     These are surfaced first in the quiz so the user can re-earn (or retire)
@@ -373,19 +386,13 @@ def get_revalidation_questions(limit: int = 10, file_path: str | None = None) ->
         "id, file_path, question_text, choices, expected_answer, line_start, "
         "line_end, seed_query_ids, seed_query_source, pending_revalidation"
     )
+    scope, params = _paths_filter(file_paths)
     with _conn() as conn:
-        if file_path:
-            rows = conn.execute(
-                f"SELECT {cols} FROM questions "
-                "WHERE pending_revalidation = TRUE AND file_path = ? ORDER BY id LIMIT ?",
-                (file_path, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                f"SELECT {cols} FROM questions "
-                "WHERE pending_revalidation = TRUE ORDER BY id LIMIT ?",
-                (limit,),
-            ).fetchall()
+        rows = conn.execute(
+            f"SELECT {cols} FROM questions "
+            f"WHERE pending_revalidation = TRUE{scope} ORDER BY id LIMIT ?",
+            (*params, limit),
+        ).fetchall()
     return [dict(r) for r in rows]
 
 

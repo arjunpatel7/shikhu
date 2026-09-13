@@ -7,8 +7,9 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 
-from shikhu.commands.utils import console, get_trackable_files
+from shikhu.commands.utils import changed_files, console, get_trackable_files
 from shikhu.ingest import ingest_recent
+from shikhu.staleness import mark_stale_questions
 from shikhu.store import (
     discard_revalidation,
     flag_question,
@@ -101,21 +102,43 @@ def _maybe_prompt_for_attribution(q):
 def quiz(
     n: int = typer.Option(5, help="Number of questions to ask."),
     file: str = typer.Option(None, help="Quiz on a single file only."),
+    since: str = typer.Option(
+        None, "--since", help="Only quiz on files changed since this git ref (e.g. main)."
+    ),
 ):
     """Take a quiz on your codebase."""
+    if file and since:
+        raise typer.BadParameter("Use --file or --since, not both.")
     init_db()
     try:
         ingest_recent()
     except Exception:
         pass  # ingestion is non-critical
+    # Local and free: stale edited files first so their goldens come up for re-validation.
+    mark_stale_questions()
+
+    scope: list[str] | None = None
+    if file:
+        scope = [file]
+    elif since:
+        scope = changed_files(since)
+        if not scope:
+            console.print(f"\nNo changed trackable files since [bold]{since}[/bold].\n")
+            return
+
     # Re-validation questions (goldens whose file changed) come first, then fresh ones.
-    questions = get_revalidation_questions(limit=n, file_path=file)
+    questions = get_revalidation_questions(limit=n, file_paths=scope)
     if len(questions) < n:
-        questions += get_unasked_questions(limit=n - len(questions), file_path=file)
+        questions += get_unasked_questions(limit=n - len(questions), file_paths=scope)
 
     if not questions:
         console.print()
-        if file:
+        if since:
+            console.print(
+                f"[dim]No questions available for files changed since[/dim] [bold]{since}[/bold]. "
+                f"Run [bold]shikhu refresh --since {since}[/bold] to generate some."
+            )
+        elif file:
             tracked = get_trackable_files()
             if file not in tracked:
                 console.print(f"[yellow]File not tracked:[/yellow] [bold]{file}[/bold]")

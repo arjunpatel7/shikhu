@@ -92,7 +92,7 @@ def test_insert_questions_with_seed_links():
         seed_query_source="review_questions",
     )
 
-    rows = store.get_unasked_questions(limit=10, file_path="seeded.py")
+    rows = store.get_unasked_questions(limit=10, file_paths=["seeded.py"])
     assert len(rows) == 1
     assert json.loads(rows[0]["seed_query_ids"]) == [seed_a, seed_b]
     assert rows[0]["seed_query_source"] == "review_questions"
@@ -122,7 +122,7 @@ def test_seeded_recent_questions_sampled_more_often():
     seeded_picks = sum(
         1
         for _ in range(100)
-        if store.get_unasked_questions(limit=1, file_path="biased.py")[0]["seed_query_ids"]
+        if store.get_unasked_questions(limit=1, file_paths=["biased.py"])[0]["seed_query_ids"]
     )
     assert seeded_picks >= 25, f"expected bias toward seeded, got {seeded_picks}/100"
 

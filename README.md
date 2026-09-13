@@ -101,6 +101,18 @@ shikhu coverage
 
 Shows which files you've mastered and which need work. Each file needs 3 golden questions to be fully covered.
 
+### 7. Review just your branch before shipping
+
+Before you open a PR, focus on the files the branch actually changed:
+
+```bash
+shikhu refresh --since main            # generate questions only for changed files
+shikhu quiz --since main               # quiz only on changed files (re-validations first)
+shikhu coverage --since main --check   # exit 1 if a changed file has no fresh golden question
+```
+
+`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so run it on your machine (for example in a pre-push hook), not in CI.
+
 ## All Commands
 
 | Command | What it does |
@@ -115,6 +127,9 @@ Shows which files you've mastered and which need work. Each file needs 3 golden 
 | `shikhu summarize --file path.py` | Force-regenerate summary for one file |
 | `shikhu generate-from-study path.py` | Generate quiz Qs seeded by your prior `/shikhu-study` questions for that file |
 | `shikhu coverage` | Print knowledge-coverage report |
+| `shikhu refresh --since main` | Generate summaries and questions only for files changed since `main` |
+| `shikhu quiz --since main` | Quiz only on files changed since `main` |
+| `shikhu coverage --since main --check [--min N]` | Report changed files; exit 1 if any has fewer than N fresh goldens (default 1) |
 | `shikhu clean` | Delete the database (asks for confirmation) |
 | `shikhu clean --yes` | Delete without confirmation |
 
