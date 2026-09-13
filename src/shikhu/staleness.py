@@ -74,9 +74,27 @@ def mark_stale_questions() -> int:
     3. If the hash differs (or file is missing), mark ALL non-stale questions stale.
     4. Update the stored content_hash to the current value.
 
+    Files that have non-stale questions but no stored hash (databases created before
+    generation recorded one) are baselined to their current hash first, without
+    marking anything stale — today's content is treated as what was understood.
+
     Returns the number of questions marked stale.
     """
     conn = _get_conn()
+
+    unbaselined = conn.execute("""
+        SELECT f.id, f.filepath
+        FROM files f
+        WHERE f.content_hash IS NULL
+        AND EXISTS (SELECT 1 FROM questions q WHERE q.file_id = f.id AND q.stale = FALSE)
+    """).fetchall()
+    for file in unbaselined:
+        current_hash = compute_file_hash(file["filepath"])
+        if current_hash is not None:
+            conn.execute(
+                "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?",
+                (current_hash, file["id"]),
+            )
 
     files = conn.execute("""
         SELECT f.id, f.filepath, f.content_hash

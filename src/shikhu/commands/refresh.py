@@ -15,7 +15,7 @@ from shikhu.commands.utils import (
     get_trackable_files,
 )
 from shikhu.ingest import ingest_recent
-from shikhu.staleness import mark_stale_questions
+from shikhu.staleness import compute_file_hash, mark_stale_questions
 from shikhu.store import delete_summaries_not_in, init_db
 
 
@@ -115,6 +115,8 @@ def refresh(
 
         def _gen_one(file_path: str, needed: int) -> tuple[str, int, str | None]:
             try:
+                # Hash before generating so the baseline matches the content sent to the model.
+                content_hash = compute_file_hash(file_path)
                 result = generate_question_from_file(file_path, num_questions=needed)
                 if result is None:
                     return file_path, 0, "file missing"
@@ -124,6 +126,7 @@ def refresh(
                     _quiz_to_rows(quiz_obj),
                     prompt_version=PROMPT_VERSION,
                     model=stats.get("model"),
+                    content_hash=content_hash,
                 )
                 return file_path, len(ids), None
             except Exception as e:

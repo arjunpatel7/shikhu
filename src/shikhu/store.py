@@ -233,17 +233,26 @@ def insert_questions(
     seed_query_ids: list[int] | None = None,
     seed_query_source: str | None = None,
     model: str | None = None,
+    content_hash: str | None = None,
 ) -> list[int]:
     """Write generated questions to the DB.
     Each question dict should have: question_text, choices (list[str]), expected_answer,
     line_start (optional), line_end (optional).
     Pass seed_query_ids/seed_query_source when these questions were seeded by prior user queries.
     Pass model to record which model generated them.
+    Pass content_hash (staleness.compute_file_hash of the content the questions were generated
+    from) to set the file's staleness baseline; callers should run mark_stale_questions first
+    so older questions are staled against the previous baseline before it moves.
     Returns list of inserted question ids."""
     file_id = get_or_create_file(file_path)
     seeds_json = json.dumps(seed_query_ids) if seed_query_ids else None
     ids = []
     with _conn() as conn:
+        if content_hash is not None:
+            conn.execute(
+                "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?",
+                (content_hash, file_id),
+            )
         for q in questions:
             choices_json = json.dumps(q["choices"]) if "choices" in q else None
             cursor = conn.execute(
