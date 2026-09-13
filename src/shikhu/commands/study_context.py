@@ -13,7 +13,7 @@ from shikhu.store import get_reviews_for_file, get_summary, init_db
 def study_context(
     file_path: str = typer.Argument(..., help="File to load study context for."),
 ):
-    """Print the cached Mercury summary and prior review records for a file."""
+    """Print the cached file summary and prior review records for a file."""
     init_db()
     try:
         ingest_recent()

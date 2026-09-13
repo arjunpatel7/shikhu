@@ -35,11 +35,11 @@ def test_refresh_summary_phase_includes_md():
 
 
 def test_refresh_requires_api_key(monkeypatch):
-    """A missing INCEPTION_API_KEY fails once with instructions, not per file."""
+    """A missing OPENROUTER_API_KEY fails once with instructions, not per file."""
     from shikhu.cli import app
 
-    monkeypatch.delenv("INCEPTION_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with patch("shikhu.commands.refresh.load_dotenv"):
         result = runner.invoke(app, ["refresh"])
     assert result.exit_code == 1
-    assert "INCEPTION_API_KEY" in result.output
+    assert "OPENROUTER_API_KEY" in result.output

@@ -8,9 +8,11 @@ from conftest import runner
 import shikhu.store as store
 
 
-def test_init_creates_db():
+def test_init_creates_db(tmp_path, monkeypatch):
     """shikhu init creates all expected tables."""
     from shikhu.cli import app
+
+    monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
@@ -31,9 +33,11 @@ def test_init_creates_db():
     assert expected.issubset(tables)
 
 
-def test_init_idempotent():
+def test_init_idempotent(tmp_path, monkeypatch):
     """Running shikhu init twice does not crash."""
     from shikhu.cli import app
+
+    monkeypatch.chdir(tmp_path)
 
     result1 = runner.invoke(app, ["init"])
     result2 = runner.invoke(app, ["init"])
@@ -59,11 +63,24 @@ def test_init_gitignores_coverage_db(tmp_path, monkeypatch):
     assert (tmp_path / ".gitignore").read_text().count("coverage.db") == 1
 
 
-def test_init_warns_missing_api_key():
-    """shikhu init warns when INCEPTION_API_KEY is not set."""
+def test_init_warns_missing_api_key(tmp_path, monkeypatch):
+    """shikhu init warns when OPENROUTER_API_KEY is not set."""
     from shikhu.cli import app
 
+    monkeypatch.chdir(tmp_path)
     with patch("shikhu.commands.init.load_dotenv"), patch.dict(os.environ, {}, clear=True):
         result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
-    assert "INCEPTION_API_KEY" in result.output
+    assert "OPENROUTER_API_KEY" in result.output
+
+
+def test_init_flags_legacy_inception_key(tmp_path, monkeypatch):
+    """A leftover INCEPTION_API_KEY gets a pointer to OpenRouter instead of silent failure."""
+    from shikhu.cli import app
+
+    monkeypatch.chdir(tmp_path)
+    env = {"INCEPTION_API_KEY": "old"}
+    with patch("shikhu.commands.init.load_dotenv"), patch.dict(os.environ, env, clear=True):
+        result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    assert "INCEPTION_API_KEY is no longer used" in result.output

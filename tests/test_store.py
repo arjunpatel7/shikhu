@@ -149,3 +149,13 @@ def test_get_conceptual_study_questions_for_file():
     ]
 
     assert store.get_conceptual_study_questions_for_file("never-touched.py") == []
+
+
+def test_insert_questions_records_model():
+    """insert_questions stores which model generated each question."""
+    q = [{"question_text": "Q", "choices": ["A", "B", "C", "D"], "expected_answer": "A"}]
+    [qid] = store.insert_questions("m.py", q, prompt_version="v4", model="inception/mercury-2.5")
+    conn = store._get_conn()
+    row = conn.execute("SELECT model FROM questions WHERE id = ?", (qid,)).fetchone()
+    conn.close()
+    assert row["model"] == "inception/mercury-2.5"

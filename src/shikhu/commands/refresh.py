@@ -118,9 +118,12 @@ def refresh(
                 result = generate_question_from_file(file_path, num_questions=needed)
                 if result is None:
                     return file_path, 0, "file missing"
-                quiz_obj, _ = result
+                quiz_obj, stats = result
                 ids = insert_questions(
-                    file_path, _quiz_to_rows(quiz_obj), prompt_version=PROMPT_VERSION
+                    file_path,
+                    _quiz_to_rows(quiz_obj),
+                    prompt_version=PROMPT_VERSION,
+                    model=stats.get("model"),
                 )
                 return file_path, len(ids), None
             except Exception as e:

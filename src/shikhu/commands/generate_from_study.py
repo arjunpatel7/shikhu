@@ -49,6 +49,7 @@ def generate_from_study(
         prompt_version=PROMPT_VERSION,
         seed_query_ids=seed_ids,
         seed_query_source="review_questions",
+        model=stats.get("model"),
     )
 
     console.print(

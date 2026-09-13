@@ -52,6 +52,7 @@ MIGRATIONS = [
     ("questions", "created_at", "TIMESTAMP"),
     ("questions", "pending_revalidation", "BOOLEAN DEFAULT FALSE"),
     ("questions", "presented_at", "TIMESTAMP"),
+    ("questions", "model", "TEXT"),
 ]
 
 # Column renames for older DBs: (table, old_name, new_name). Applied idempotently
@@ -231,11 +232,13 @@ def insert_questions(
     prompt_version: str | None = None,
     seed_query_ids: list[int] | None = None,
     seed_query_source: str | None = None,
+    model: str | None = None,
 ) -> list[int]:
     """Write generated questions to the DB.
     Each question dict should have: question_text, choices (list[str]), expected_answer,
     line_start (optional), line_end (optional).
     Pass seed_query_ids/seed_query_source when these questions were seeded by prior user queries.
+    Pass model to record which model generated them.
     Returns list of inserted question ids."""
     file_id = get_or_create_file(file_path)
     seeds_json = json.dumps(seed_query_ids) if seed_query_ids else None
@@ -244,8 +247,8 @@ def insert_questions(
         for q in questions:
             choices_json = json.dumps(q["choices"]) if "choices" in q else None
             cursor = conn.execute(
-                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
                 (
                     file_id,
                     file_path,
@@ -257,6 +260,7 @@ def insert_questions(
                     prompt_version,
                     seeds_json,
                     seed_query_source,
+                    model,
                 ),
             )
             ids.append(cursor.lastrowid)

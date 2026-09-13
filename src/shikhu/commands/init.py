@@ -28,10 +28,14 @@ def init(
     init_db()
     console.print("  [green]>[/green] Database initialized")
 
-    if not os.environ.get("INCEPTION_API_KEY"):
+    if not os.environ.get("OPENROUTER_API_KEY"):
         console.print(
-            "  [yellow]![/yellow] INCEPTION_API_KEY not set — question generation won't work"
+            "  [yellow]![/yellow] OPENROUTER_API_KEY not set — question generation won't work"
         )
+        if os.environ.get("INCEPTION_API_KEY"):
+            console.print(
+                "    [dim]INCEPTION_API_KEY is no longer used — get an OpenRouter key at https://openrouter.ai/keys[/dim]"
+            )
     else:
         console.print("  [green]>[/green] API key found")
 
