@@ -1,4 +1,4 @@
-"""shikhu summarize — generate cached Mercury summaries of tracked files."""
+"""shikhu summarize — generate cached LLM summaries of tracked files."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -47,13 +47,13 @@ def summarize(
     file: str = typer.Option(
         None, "--file", help="Summarize a single file (regenerates even if fresh)."
     ),
-    workers: int = typer.Option(8, "--workers", help="Parallelism for Mercury calls."),
+    workers: int = typer.Option(8, "--workers", help="Parallelism for model calls."),
     extensions: str = typer.Option(
         SUMMARY_EXTENSIONS,
         help="Comma-separated extensions to summarize.",
     ),
 ):
-    """Generate cached file summaries via Mercury, in parallel."""
+    """Generate cached file summaries via OpenRouter, in parallel."""
     ensure_api_key()
     init_db()
 

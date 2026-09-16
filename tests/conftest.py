@@ -20,7 +20,7 @@ def _fresh_db(tmp_path):
 @pytest.fixture(autouse=True)
 def _dummy_api_key(monkeypatch):
     """Satisfy ensure_api_key() in generation commands — no test ever hits the network."""
-    monkeypatch.setenv("INCEPTION_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
 
 def _insert_questions(file_path="fake.py", n=3, stale=False):

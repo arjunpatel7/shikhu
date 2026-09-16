@@ -10,12 +10,13 @@ from shikhu.commands.summarize import _summarize_one
 from shikhu.commands.utils import (
     COVERED_THRESHOLD,
     DEFAULT_EXTENSIONS,
+    changed_files,
     console,
     ensure_api_key,
     get_trackable_files,
 )
 from shikhu.ingest import ingest_recent
-from shikhu.staleness import mark_stale_questions
+from shikhu.staleness import compute_file_hash, mark_stale_questions
 from shikhu.store import delete_summaries_not_in, init_db
 
 
@@ -23,6 +24,11 @@ def refresh(
     extensions: str = typer.Option(DEFAULT_EXTENSIONS, help="File extensions to track."),
     summary_workers: int = typer.Option(
         8, "--summary-workers", help="Parallelism for summary refresh."
+    ),
+    since: str = typer.Option(
+        None,
+        "--since",
+        help="Only generate summaries and questions for files changed since this git ref (e.g. main).",
     ),
 ):
     """Check staleness, regenerate questions + summaries, print summary."""
@@ -46,11 +52,17 @@ def refresh(
     # pruning below never deletes doc summaries that summarize created.
     summary_extensions = extensions if ".md" in extensions else f"{extensions},.md"
 
-    # Drop summaries for files no longer tracked (deleted, renamed, or .quizignore'd)
+    # Drop summaries for files no longer tracked (deleted, renamed, or .quizignore'd).
+    # Always prune against the full tracked set, even with --since.
     trackable_for_summaries = get_trackable_files(summary_extensions)
     orphans = delete_summaries_not_in(trackable_for_summaries)
     if orphans:
         console.print(f"  [yellow]![/yellow] Pruned {orphans} orphaned summary(ies)")
+    if since:
+        trackable_for_summaries = changed_files(since, summary_extensions)
+        console.print(
+            f"  [cyan]>[/cyan] Limiting to {len(trackable_for_summaries)} file(s) changed since [bold]{since}[/bold]"
+        )
 
     # Refresh stale/missing summaries in parallel (with progress bar)
     summary_generated, summary_fresh, summary_errors = 0, 0, 0
@@ -98,7 +110,7 @@ def refresh(
         )
         from shikhu.store import insert_questions
 
-        trackable = get_trackable_files(extensions)
+        trackable = changed_files(since, extensions) if since else get_trackable_files(extensions)
         existing = _get_unasked_counts()
         to_generate = [
             (f, COVERED_THRESHOLD - existing.get(f, 0))
@@ -115,12 +127,18 @@ def refresh(
 
         def _gen_one(file_path: str, needed: int) -> tuple[str, int, str | None]:
             try:
+                # Hash before generating so the baseline matches the content sent to the model.
+                content_hash = compute_file_hash(file_path)
                 result = generate_question_from_file(file_path, num_questions=needed)
                 if result is None:
                     return file_path, 0, "file missing"
-                quiz_obj, _ = result
+                quiz_obj, stats = result
                 ids = insert_questions(
-                    file_path, _quiz_to_rows(quiz_obj), prompt_version=PROMPT_VERSION
+                    file_path,
+                    _quiz_to_rows(quiz_obj),
+                    prompt_version=PROMPT_VERSION,
+                    model=stats.get("model"),
+                    content_hash=content_hash,
                 )
                 return file_path, len(ids), None
             except Exception as e:

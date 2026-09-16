@@ -15,7 +15,7 @@ Think test coverage, but for your brain!
 ## Getting Started
 
 Prerequisites:
-- An **Inception API key** (required). This gives you access to fast, text-diffusion models for question generation and summarization. You can get one for free at [Inception Labs](https://platform.inceptionlabs.ai/).
+- An **OpenRouter API key** (required). Shikhu calls models through [OpenRouter](https://openrouter.ai/); by default it uses Inception's fast Mercury 2.5 diffusion model for question generation and summarization. Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
 - A **skill-compatible coding agent** like Claude Code, Codex, or Cursor (strongly recommended). The core loop — `refresh`, `quiz`, `coverage` — runs entirely in your terminal, but Shikhu really shines when paired with the `/shikhu-study` skill (step 5): it turns "I don't get this file" into a guided walkthrough *and* feeds your weak spots back into future quizzes.
 
 ### 1. Install
@@ -28,12 +28,14 @@ uv tool install shikhu
 
 This puts `shikhu` on your `PATH` in an isolated environment (no clash with your project's dependencies). `cd` into any repo and the commands below just work — each repo gets its own `coverage.db`, `.quizignore`, and `.env`. (`pipx install shikhu` or `pip install shikhu` into a virtualenv work too.)
 
-Provide your Inception API key via a `.env` file in the repo you're quizzing (auto-loaded), or export it in your shell:
+Provide your OpenRouter API key via a `.env` file in the repo you're quizzing (auto-loaded), or export it in your shell:
 ```
-INCEPTION_API_KEY=your-key-here
+OPENROUTER_API_KEY=your-key-here
 ```
 
-Get a key at [Inception Labs](https://platform.inceptionlabs.ai/).
+Get a key at [openrouter.ai/keys](https://openrouter.ai/keys). Shikhu is built and tested against `inception/mercury-2.5`.
+
+> Upgrading from 0.1.x? Shikhu no longer calls the Inception API directly, so `INCEPTION_API_KEY` is ignored — add `OPENROUTER_API_KEY` instead.
 
 
 ### 2. Initialize
@@ -52,9 +54,9 @@ Next, you're ready to batch some questions. Run the following command:
 shikhu refresh
 ```
 
-Shikhu scans your tracked files, checks for stale questions, and generates new ones using the Mercury API. Files matching `.quizignore` patterns are skipped.
+Shikhu scans your tracked files, checks for stale questions, and generates new ones through OpenRouter. Files matching `.quizignore` patterns are skipped.
 
-Under the hood, `refresh` runs two passes in parallel: **summaries** (a cached Mercury summary per file, used to seed question generation and to feed `/shikhu-study`) and **questions** (one batch per file). Both skip files whose content hash and prompt version haven't changed, so re-running `refresh` after a small edit only regenerates the files that actually changed. If you only want to refresh summaries, run `shikhu summarize`; tune parallelism with `--summary-workers` (default 8).
+Under the hood, `refresh` runs two passes in parallel: **summaries** (a cached model-written summary per file, used to seed question generation and to feed `/shikhu-study`) and **questions** (one batch per file). Both skip files whose content hash and prompt version haven't changed, so re-running `refresh` after a small edit only regenerates the files that actually changed. If you only want to refresh summaries, run `shikhu summarize`; tune parallelism with `--summary-workers` (default 8).
 
 ### 4. Take a quiz
 
@@ -99,6 +101,18 @@ shikhu coverage
 
 Shows which files you've mastered and which need work. Each file needs 3 golden questions to be fully covered.
 
+### 7. Review just your branch before shipping
+
+Before you open a PR, focus on the files the branch actually changed:
+
+```bash
+shikhu refresh --since main            # generate questions only for changed files
+shikhu quiz --since main               # quiz only on changed files (re-validations first)
+shikhu coverage --since main --check   # exit 1 if a changed file has no fresh golden question
+```
+
+`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so run it on your machine (for example in a pre-push hook), not in CI.
+
 ## All Commands
 
 | Command | What it does |
@@ -109,17 +123,20 @@ Shows which files you've mastered and which need work. Each file needs 3 golden 
 | `shikhu quiz --n 10` | Quiz with 10 questions |
 | `shikhu quiz --file path.py` | Quiz on a single file |
 | `shikhu refresh` | Staleness check + regenerate stale questions and summaries |
-| `shikhu summarize` | Parallel Mercury summaries for every tracked file |
+| `shikhu summarize` | Parallel model-written summaries for every tracked file |
 | `shikhu summarize --file path.py` | Force-regenerate summary for one file |
 | `shikhu generate-from-study path.py` | Generate quiz Qs seeded by your prior `/shikhu-study` questions for that file |
 | `shikhu coverage` | Print knowledge-coverage report |
+| `shikhu refresh --since main` | Generate summaries and questions only for files changed since `main` |
+| `shikhu quiz --since main` | Quiz only on files changed since `main` |
+| `shikhu coverage --since main --check [--min N]` | Report changed files; exit 1 if any has fewer than N fresh goldens (default 1) |
 | `shikhu clean` | Delete the database (asks for confirmation) |
 | `shikhu clean --yes` | Delete without confirmation |
 
 
 ## How It Works
 
-1. **Question generation** — Mercury (Inception Labs) reads your source files and generates conceptual multiple-choice questions about design decisions, architecture, and how things work.
+1. **Question generation** — an LLM (Inception's Mercury 2.5 via OpenRouter by default) reads your source files and generates conceptual multiple-choice questions about design decisions, architecture, and how things work.
 
 2. **Quizzing** — Answer questions in the terminal. Rate question quality. Correct answers on good questions become **golden** — validated proof you understand that file.
 
@@ -127,7 +144,7 @@ Shows which files you've mastered and which need work. Each file needs 3 golden 
 
 4. **Staleness** — When code changes (detected via SHA-256 hashing), related questions are marked stale so your coverage stays honest.
 
-5. **Study-driven generation** — `/shikhu-study` captures the conceptual questions you actually ask while learning a file. `shikhu generate-from-study` turns those into quiz questions, so the next quiz tests the gaps you surfaced — not just whatever Mercury picks from the file.
+5. **Study-driven generation** — `/shikhu-study` captures the conceptual questions you actually ask while learning a file. `shikhu generate-from-study` turns those into quiz questions, so the next quiz tests the gaps you surfaced — not just whatever the model picks from the file.
 
 ## Golden Questions
 
@@ -142,7 +159,8 @@ A golden question is one you:
 
 Everything Shikhu knows lives in one local SQLite file, `coverage.db`, in the repo you run it from. Nothing is uploaded anywhere. Two things are worth knowing:
 
-- **File contents are sent to the Mercury API** (Inception Labs) to generate questions and summaries — that's the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent.
+- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 2.5), to generate questions and summaries — that's the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
+- **Requests identify shikhu to OpenRouter** by name and repo URL ([app attribution](https://openrouter.ai/docs/app-attribution)), which is what lists shikhu on OpenRouter's public app rankings. Only the app name and URL are sent; nothing about you, your key, or your code.
 - **Shikhu reads your local Claude Code transcripts** for the current project (`~/.claude/projects/...`) to find conceptual questions you've asked, and stores them in `coverage.db` to seed better quiz questions. These prompts never leave your machine — but it's one more reason `coverage.db` must stay out of git. `shikhu init` adds it to your `.gitignore` automatically.
 
 ## Configuration
@@ -162,12 +180,13 @@ deprecated/
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `INCEPTION_API_KEY` | Yes | Mercury API for question generation |
+| `OPENROUTER_API_KEY` | Yes | OpenRouter API for question and summary generation |
+| `SHIKHU_MODEL` | No | **Experimental, unsupported.** Override the OpenRouter model id (default `inception/mercury-2.5`). The model must support structured outputs; reasoning models may fail with truncated responses. |
 
 ## Tech
 
 - Python 3.12+, managed with [uv](https://docs.astral.sh/uv/)
-- [Mercury](https://www.inceptionlabs.ai/) for question generation
+- [OpenRouter](https://openrouter.ai/) + [Mercury 2.5](https://www.inceptionlabs.ai/) (default model) for question generation
 - [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) for the CLI
 - SQLite for local storage
 - SHA-256 file hashing for staleness detection

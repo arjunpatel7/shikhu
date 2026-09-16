@@ -223,3 +223,37 @@ def test_stale_non_golden_no_revalidation(tmp_path, _fresh_db):
     ).fetchone()
     conn.close()
     assert (row["stale"], row["pending_revalidation"]) == (1, 0)
+
+
+def test_insert_questions_sets_baseline_hash(tmp_path, _fresh_db):
+    """insert_questions with content_hash records the file's staleness baseline."""
+    from shikhu.staleness import compute_file_hash
+
+    f = tmp_path / "code.py"
+    f.write_text("x = 1\n")
+    h = compute_file_hash(str(f))
+    q = [{"question_text": "Q", "choices": ["A", "B", "C", "D"], "expected_answer": "A"}]
+    store.insert_questions(str(f), q, content_hash=h)
+
+    conn = store._get_conn()
+    row = conn.execute("SELECT content_hash FROM files WHERE filepath = ?", (str(f),)).fetchone()
+    conn.close()
+    assert row["content_hash"] == h
+
+
+def test_unbaselined_file_is_backfilled_then_tracked(tmp_path, _fresh_db):
+    """Pre-fix DBs (questions but no hash) get today's hash as baseline, then staleness works."""
+    from shikhu.staleness import compute_file_hash, mark_stale_questions
+
+    f = tmp_path / "code.py"
+    f.write_text("x = 1\n")
+    _insert_questions(str(f), n=2)  # no content_hash, like databases from before the fix
+
+    assert mark_stale_questions() == 0  # backfill only, nothing staled
+    conn = store._get_conn()
+    row = conn.execute("SELECT content_hash FROM files WHERE filepath = ?", (str(f),)).fetchone()
+    conn.close()
+    assert row["content_hash"] == compute_file_hash(str(f))
+
+    f.write_text("x = 2\n")
+    assert mark_stale_questions() == 2

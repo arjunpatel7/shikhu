@@ -8,44 +8,118 @@ from pathlib import Path
 
 import requests
 from dotenv import find_dotenv, load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from shikhu.store import read_file_lines
 
-# Load .env at import so INCEPTION_API_KEY is present before any request is made.
+# Load .env at import so OPENROUTER_API_KEY is present before any request is made.
 # find_dotenv(usecwd=True): load_dotenv() otherwise searches upward from this
 # installed package's own file location, not the user's working directory.
 load_dotenv(find_dotenv(usecwd=True))
 
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "inception/mercury-2.5"
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
+
+# OpenRouter app attribution: identifies shikhu on openrouter.ai/apps and model
+# leaderboards. Only the app name/URL below is sent; no user or prompt data.
+# APP_URL is the app's permanent id — changing it starts a separate app with
+# separate stats, so a future paid product gets its own URL rather than reusing this.
+APP_URL = "https://github.com/arjunpatel7/shikhu"
+APP_TITLE = "shikhu"
+APP_CATEGORIES = "programming-app"
 
 
 def _api_key() -> str:
-    key = os.environ.get("INCEPTION_API_KEY")
+    key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
         raise RuntimeError(
-            "INCEPTION_API_KEY is not set — add it to a .env file in this repo or export it"
+            "OPENROUTER_API_KEY is not set — add it to a .env file in this repo or export it"
         )
     return key
+
+
+def get_model() -> str:
+    """Model id sent to OpenRouter. Read per call so .env and test overrides apply."""
+    return os.environ.get("SHIKHU_MODEL") or DEFAULT_MODEL
 
 
 def _check_response(response: requests.Response) -> dict:
     """Return the parsed JSON body, raising a readable error on API failure."""
     if response.status_code != 200:
         raise RuntimeError(
-            f"Mercury API error (HTTP {response.status_code}): {response.text[:300]}"
+            f"OpenRouter API error (HTTP {response.status_code}): {response.text[:300]}"
         )
-    return response.json()
+    data = response.json()
+    if "error" in data:
+        raise RuntimeError(f"OpenRouter API error: {str(data['error'])[:300]}")
+    choice = (data.get("choices") or [{}])[0]
+    if choice.get("error"):
+        raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:300]}")
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError("Model response was truncated (hit max_tokens)")
+    return data
+
+
+def _chat(prompt: str, max_tokens: int, response_format: dict | None = None) -> tuple[str, dict]:
+    """POST one user prompt to OpenRouter. Returns (message content, stats)."""
+    model = get_model()
+    payload: dict = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+    }
+    if model.startswith("inception/"):
+        # Mercury reasons by default and reasoning tokens count against max_tokens,
+        # which truncates quiz JSON. Other models may reject "none" (no reasoning
+        # support, or reasoning mandatory), so only send it to Inception.
+        payload["reasoning"] = {"effort": "none"}
+    if response_format is not None:
+        payload["response_format"] = response_format
+        # Fail clearly if SHIKHU_MODEL points at an endpoint without structured outputs.
+        payload["provider"] = {"require_parameters": True}
+
+    start = time.time()
+    response = requests.post(
+        OPENROUTER_URL,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {_api_key()}",
+            "HTTP-Referer": APP_URL,
+            "X-OpenRouter-Title": APP_TITLE,
+            "X-OpenRouter-Categories": APP_CATEGORIES,
+        },
+        json=payload,
+        timeout=REQUEST_TIMEOUT,
+    )
+    elapsed = time.time() - start
+    data = _check_response(response)
+    content = data["choices"][0]["message"]["content"] or ""
+    usage = data.get("usage") or {}
+    stats = {
+        "elapsed": elapsed,
+        "model": data.get("model", model),
+        "completion_tokens": usage.get("completion_tokens"),
+        "prompt_tokens": usage.get("prompt_tokens"),
+        "cost": usage.get("cost"),
+    }
+    return content, stats
 
 
 # classes
+# extra="forbid" emits additionalProperties: false, which strict structured outputs
+# on some providers (e.g. OpenAI) require.
 class MCQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     question: str
     choices: list[str] = Field(min_length=4, max_length=4)
     correct_index: int = Field(ge=0, le=3)
 
 
 class Quiz(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     questions: list[MCQuestion]
 
 
@@ -79,38 +153,13 @@ RESPONSE_SCHEMA = {
 
 # request wrapper
 def generate_quiz(prompt: str, max_tokens: int = 2000) -> tuple[Quiz, dict]:
-    """Send a prompt to Mercury with structured output, return parsed Quiz and usage stats."""
-    start = time.time()
-    response = requests.post(
-        "https://api.inceptionlabs.ai/v1/chat/completions",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {_api_key()}",
-        },
-        json={
-            "model": "mercury-2",
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": RESPONSE_SCHEMA,
-            },
-            "max_tokens": max_tokens,
-            "reasoning_effort": "instant",
-        },
-        timeout=REQUEST_TIMEOUT,
+    """Send a prompt with structured output, return parsed Quiz and usage stats."""
+    content, stats = _chat(
+        prompt,
+        max_tokens,
+        response_format={"type": "json_schema", "json_schema": RESPONSE_SCHEMA},
     )
-    elapsed = time.time() - start
-    data = _check_response(response)
-    content = data["choices"][0]["message"]["content"]
-    quiz = Quiz.model_validate_json(content)
-    usage = data["usage"]
-    stats = {
-        "elapsed": elapsed,
-        "completion_tokens": usage["completion_tokens"],
-        "prompt_tokens": usage["prompt_tokens"],
-        "tokens_per_sec": usage["completion_tokens"] / elapsed,
-    }
-    return quiz, stats
+    return Quiz.model_validate_json(content), stats
 
 
 # context builders
@@ -172,38 +221,14 @@ def generate_questions_from_study_seeds(
 
 
 def generate_summary(file_path: str, max_tokens: int = 600) -> tuple[str, dict] | None:
-    """Call Mercury to produce a prose summary of a file. Returns (summary, stats) or None if file missing."""
+    """Produce a prose summary of a file. Returns (summary, stats) or None if file missing."""
     context = build_context_from_file(file_path)
     if context is None:
         return None
 
     prompt = f"{SUMMARY_PROMPT}\n\nFile: {context['file_path']}\n\n{context['code']}"
-
-    start = time.time()
-    response = requests.post(
-        "https://api.inceptionlabs.ai/v1/chat/completions",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {_api_key()}",
-        },
-        json={
-            "model": "mercury-2",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "reasoning_effort": "instant",
-        },
-        timeout=REQUEST_TIMEOUT,
-    )
-    elapsed = time.time() - start
-    data = _check_response(response)
-    content = data["choices"][0]["message"]["content"].strip()
-    usage = data.get("usage", {})
-    stats = {
-        "elapsed": elapsed,
-        "completion_tokens": usage.get("completion_tokens"),
-        "prompt_tokens": usage.get("prompt_tokens"),
-    }
-    return content, stats
+    content, stats = _chat(prompt, max_tokens)
+    return content.strip(), stats
 
 
 def _get_unasked_counts() -> dict[str, int]:
