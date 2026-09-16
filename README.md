@@ -159,7 +159,8 @@ A golden question is one you:
 
 Everything Shikhu knows lives in one local SQLite file, `coverage.db`, in the repo you run it from. Nothing is uploaded anywhere. Two things are worth knowing:
 
-- **File contents are sent to the Mercury API** (Inception Labs) to generate questions and summaries — that's the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent.
+- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 2.5), to generate questions and summaries — that's the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
+- **Requests identify shikhu to OpenRouter** by name and repo URL ([app attribution](https://openrouter.ai/docs/app-attribution)), which is what lists shikhu on OpenRouter's public app rankings. Only the app name and URL are sent; nothing about you, your key, or your code.
 - **Shikhu reads your local Claude Code transcripts** for the current project (`~/.claude/projects/...`) to find conceptual questions you've asked, and stores them in `coverage.db` to seed better quiz questions. These prompts never leave your machine — but it's one more reason `coverage.db` must stay out of git. `shikhu init` adds it to your `.gitignore` automatically.
 
 ## Configuration

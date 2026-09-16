@@ -21,6 +21,14 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "inception/mercury-2.5"
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
+# OpenRouter app attribution: identifies shikhu on openrouter.ai/apps and model
+# leaderboards. Only the app name/URL below is sent; no user or prompt data.
+# APP_URL is the app's permanent id — changing it starts a separate app with
+# separate stats, so a future paid product gets its own URL rather than reusing this.
+APP_URL = "https://github.com/arjunpatel7/shikhu"
+APP_TITLE = "shikhu"
+APP_CATEGORIES = "programming-app"
+
 
 def _api_key() -> str:
     key = os.environ.get("OPENROUTER_API_KEY")
@@ -77,6 +85,9 @@ def _chat(prompt: str, max_tokens: int, response_format: dict | None = None) -> 
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {_api_key()}",
+            "HTTP-Referer": APP_URL,
+            "X-OpenRouter-Title": APP_TITLE,
+            "X-OpenRouter-Categories": APP_CATEGORIES,
         },
         json=payload,
         timeout=REQUEST_TIMEOUT,

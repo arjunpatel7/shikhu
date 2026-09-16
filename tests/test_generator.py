@@ -101,6 +101,20 @@ def test_quiz_request_shape(monkeypatch):
     assert stats["completion_tokens"] == 5
 
 
+def test_attribution_headers(monkeypatch):
+    """Every call carries app attribution, and nothing about the user or their code."""
+    monkeypatch.delenv("SHIKHU_MODEL", raising=False)
+    with patch("shikhu.generator.requests.post", return_value=_response()) as post:
+        generator.generate_quiz("prompt")
+
+    headers = post.call_args.kwargs["headers"]
+    assert headers["HTTP-Referer"] == "https://github.com/arjunpatel7/shikhu"
+    assert headers["X-OpenRouter-Title"] == "shikhu"
+    assert headers["X-OpenRouter-Categories"] == "programming-app"
+    # The app id is what OpenRouter keys stats on; a change splits them silently.
+    assert generator.APP_URL == "https://github.com/arjunpatel7/shikhu"
+
+
 def test_summary_request_has_no_response_format(tmp_path):
     """Summaries are plain text: no response_format and no provider constraint."""
     f = tmp_path / "a.py"
