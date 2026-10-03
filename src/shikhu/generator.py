@@ -10,6 +10,11 @@ import requests
 from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
 
+from shikhu.openrouter import (
+    ERROR_SNIPPET,
+    check_response,
+    headers,
+)
 from shikhu.store import read_file_lines
 
 # Load .env at import so OPENROUTER_API_KEY is present before any request is made.
@@ -21,22 +26,8 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "inception/mercury-2.5"
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
-# OpenRouter app attribution: identifies shikhu on openrouter.ai/apps and model
-# leaderboards. Only the app name/URL below is sent; no user or prompt data.
-# APP_URL is the app's permanent id — changing it starts a separate app with
-# separate stats, so a future paid product gets its own URL rather than reusing this.
-APP_URL = "https://github.com/arjunpatel7/shikhu"
-APP_TITLE = "shikhu"
-APP_CATEGORIES = "programming-app"
-
-
-def _api_key() -> str:
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if not key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is not set — add it to a .env file in this repo or export it"
-        )
-    return key
+# Auth, app attribution (APP_URL/APP_TITLE/APP_CATEGORIES) and the shared error shape
+# now live in `openrouter`, since `systemone` needs the same three things.
 
 
 def get_model() -> str:
@@ -46,16 +37,10 @@ def get_model() -> str:
 
 def _check_response(response: requests.Response) -> dict:
     """Return the parsed JSON body, raising a readable error on API failure."""
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"OpenRouter API error (HTTP {response.status_code}): {response.text[:300]}"
-        )
-    data = response.json()
-    if "error" in data:
-        raise RuntimeError(f"OpenRouter API error: {str(data['error'])[:300]}")
+    data = check_response(response, "OpenRouter")
     choice = (data.get("choices") or [{}])[0]
     if choice.get("error"):
-        raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:300]}")
+        raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:ERROR_SNIPPET]}")
     if choice.get("finish_reason") == "length":
         raise RuntimeError("Model response was truncated (hit max_tokens)")
     return data
@@ -82,13 +67,7 @@ def _chat(prompt: str, max_tokens: int, response_format: dict | None = None) -> 
     start = time.time()
     response = requests.post(
         OPENROUTER_URL,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {_api_key()}",
-            "HTTP-Referer": APP_URL,
-            "X-OpenRouter-Title": APP_TITLE,
-            "X-OpenRouter-Categories": APP_CATEGORIES,
-        },
+        headers=headers(),
         json=payload,
         timeout=REQUEST_TIMEOUT,
     )

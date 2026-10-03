@@ -58,7 +58,7 @@ from unittest.mock import MagicMock, patch  # noqa: E402
 
 import pytest  # noqa: E402
 
-from shikhu import generator  # noqa: E402
+from shikhu import generator, openrouter  # noqa: E402
 
 _QUIZ_JSON = json.dumps(
     {"questions": [{"question": "Why?", "choices": ["a", "b", "c", "d"], "correct_index": 2}]}
@@ -112,7 +112,7 @@ def test_attribution_headers(monkeypatch):
     assert headers["X-OpenRouter-Title"] == "shikhu"
     assert headers["X-OpenRouter-Categories"] == "programming-app"
     # The app id is what OpenRouter keys stats on; a change splits them silently.
-    assert generator.APP_URL == "https://github.com/arjunpatel7/shikhu"
+    assert openrouter.APP_URL == "https://github.com/arjunpatel7/shikhu"
 
 
 def test_summary_request_has_no_response_format(tmp_path):
