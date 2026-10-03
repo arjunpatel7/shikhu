@@ -7,6 +7,7 @@ detection pre-pass.
 """
 
 import json
+from typing import Annotated
 
 import typer
 from dotenv import find_dotenv, load_dotenv
@@ -93,6 +94,10 @@ def record_inquiry(
     score: float = typer.Option(0.0, "--score", help="Salience score for file_path."),
     runner_up: str = typer.Option(None, "--runner-up", help="Second-ranked file, if any."),
     runner_up_score: float = typer.Option(0.0, "--runner-up-score"),
+    also: Annotated[
+        list[str] | None,
+        typer.Option("--also", help="Another file the packet led with (repeat for each)."),
+    ] = None,
 ) -> None:
     """Record a confirmed conceptual inquiry so it can seed quiz questions later.
 
@@ -102,6 +107,7 @@ def record_inquiry(
     init_db()
     from shikhu.attribution import AttributionResult
     from shikhu.store import (
+        add_review_files,
         end_review,
         insert_attribution_label,
         log_study_question,
@@ -110,6 +116,7 @@ def record_inquiry(
     )
 
     review_id = start_review(file_path)
+    add_review_files(review_id, [p for p in (also or []) if p != file_path])
     qid = log_study_question(
         review_id, text, was_conceptual=True, answered_satisfactorily=confirmed
     )

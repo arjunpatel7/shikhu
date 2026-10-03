@@ -115,7 +115,8 @@ def mark_stale_questions() -> int:
         SELECT f.id, f.filepath
         FROM files f
         WHERE f.content_hash IS NULL
-        AND EXISTS (SELECT 1 FROM questions q WHERE q.file_id = f.id AND q.stale = FALSE)
+        AND EXISTS (SELECT 1 FROM question_links l JOIN questions q ON q.id = l.question_id
+                    WHERE l.file_path = f.filepath AND q.stale = FALSE)
     """).fetchall()
     for file in unbaselined:
         current_hash = compute_file_hash(file["filepath"])
@@ -129,7 +130,8 @@ def mark_stale_questions() -> int:
         SELECT f.id, f.filepath, f.content_hash
         FROM files f
         WHERE f.content_hash IS NOT NULL
-        AND EXISTS (SELECT 1 FROM questions q WHERE q.file_id = f.id AND q.stale = FALSE)
+        AND EXISTS (SELECT 1 FROM question_links l JOIN questions q ON q.id = l.question_id
+                    WHERE l.file_path = f.filepath AND q.stale = FALSE)
     """).fetchall()
 
     stale_count = 0
@@ -140,14 +142,16 @@ def mark_stale_questions() -> int:
         if current_hash == file["content_hash"]:
             continue
 
-        # File changed (or was deleted) — mark all non-stale questions stale.
+        # File changed (or was deleted) — mark all non-stale questions stale, including
+        # cross-file questions that merely touch it.
         # Golden ones also enter pending re-validation so they can be re-earned
         # rather than silently dropping out of coverage (see store.reinstate_golden).
         result = conn.execute(
             "UPDATE questions SET stale = TRUE, "
             "pending_revalidation = CASE WHEN golden THEN TRUE ELSE pending_revalidation END "
-            "WHERE file_id = ? AND stale = FALSE",
-            (file["id"],),
+            "WHERE id IN (SELECT question_id FROM question_links WHERE file_path = ?) "
+            "AND stale = FALSE",
+            (file["filepath"],),
         )
         stale_count += result.rowcount
 

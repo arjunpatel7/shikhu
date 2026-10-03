@@ -169,13 +169,23 @@ def generate_question_from_file(file_path, num_questions: int = 5) -> tuple[Quiz
     return generate_quiz(prompt)
 
 
+MAX_EXTRA_FILES = 3  # an inquiry spanning more than this is a survey, not a question
+
+CROSS_FILE_RULE = (
+    "The developer's questions spanned several of the files below. Where a concept involves how "
+    "they work together, write the question so it needs facts from more than one of them."
+)
+
+
 def generate_questions_from_study_seeds(
     file_path: str,
     num_questions: int = 3,
-) -> tuple[Quiz, dict, list[int]] | None:
+) -> tuple[Quiz, dict, list[int], list[str]] | None:
     """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
-    Returns (quiz, stats, seed_review_question_ids) or None if no seeds / file missing."""
+    When the inquiries behind the seeds spanned more files (record-inquiry --also), those are
+    shown too so questions can cross files. Returns (quiz, stats, seed_review_question_ids,
+    extra_files) or None if no seeds / file missing."""
     from shikhu.store import get_conceptual_study_questions_for_file
 
     seeds = get_conceptual_study_questions_for_file(file_path)
@@ -188,15 +198,25 @@ def generate_questions_from_study_seeds(
 
     seed_block = "\n".join(f"{i + 1}. {s['question_text']}" for i, s in enumerate(seeds))
 
+    extra: dict[str, str] = {}  # in the order the inquiries named them, capped, files that exist
+    for s in seeds:
+        for p in s.get("extra_files", []):
+            ctx = build_context_from_file(p) if p != file_path and p not in extra else None
+            if ctx is not None and len(extra) < MAX_EXTRA_FILES:
+                extra[p] = ctx["code"]
+
+    files_block = f"File: {context['file_path']}\n\n{context['code']}" + "".join(
+        f"\n\nFile: {p}\n\n{code}" for p, code in extra.items()
+    )
     prompt = (
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{STUDY_SEED_PROMPT.format(n=num_questions, seed_questions=seed_block)}\n\n"
-        f"File: {context['file_path']}\n\n"
-        f"{context['code']}"
+        + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
+        + files_block
     )
 
     quiz, stats = generate_quiz(prompt)
-    return quiz, stats, [s["id"] for s in seeds]
+    return quiz, stats, [s["id"] for s in seeds], list(extra)
 
 
 def generate_summary(file_path: str, max_tokens: int = 600) -> tuple[str, dict] | None:
@@ -216,8 +236,9 @@ def _get_unasked_counts() -> dict[str, int]:
 
     conn = _get_conn()
     rows = conn.execute(
-        "SELECT file_path, COUNT(*) as cnt FROM questions "
-        "WHERE answered_at IS NULL AND stale = FALSE GROUP BY file_path"
+        "SELECT l.file_path, COUNT(*) as cnt FROM questions q "
+        "JOIN question_links l ON l.question_id = q.id "
+        "WHERE q.answered_at IS NULL AND q.stale = FALSE GROUP BY l.file_path"
     ).fetchall()
     conn.close()
     return {row["file_path"]: row["cnt"] for row in rows}

@@ -188,6 +188,28 @@ def init_db():
                 labeled_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- Files a question needs beyond its lead one (questions.file_path). Only the extras
+            -- live here; question_links is the union, so every per-file query counts a
+            -- cross-file question under each file it touches.
+            CREATE TABLE IF NOT EXISTS question_files (
+                question_id INTEGER NOT NULL REFERENCES questions(id),
+                file_path TEXT NOT NULL,
+                PRIMARY KEY (question_id, file_path)
+            );
+            CREATE INDEX IF NOT EXISTS idx_question_files_path ON question_files(file_path);
+
+            -- Every file an inquiry spanned, beyond the one its review is filed under.
+            CREATE TABLE IF NOT EXISTS review_files (
+                review_id INTEGER NOT NULL REFERENCES reviews(id),
+                file_path TEXT NOT NULL,
+                PRIMARY KEY (review_id, file_path)
+            );
+
+            CREATE VIEW IF NOT EXISTS question_links AS
+                SELECT id AS question_id, file_path FROM questions
+                UNION
+                SELECT question_id, file_path FROM question_files;
         """)
         for table, col, typ in MIGRATIONS:
             try:
@@ -283,6 +305,7 @@ def insert_questions(
     model: str | None = None,
     content_hash: str | None = None,
     commit_sha: str | None = None,
+    extra_files: dict[str, str | None] | None = None,
 ) -> list[int]:
     """Write generated questions to the DB.
     Each question dict should have: question_text, choices (list[str]), expected_answer,
@@ -295,7 +318,13 @@ def insert_questions(
     Pass commit_sha (staleness.pin_commit) to record the commit at which the file still matches
     that content, so the question can be reproduced there after the working copy moves on. Leave
     it None unless verified — it is never filled in from HEAD blindly.
+    Pass extra_files ({path: content_hash}) when the questions need other files too: each is
+    linked to every question, so per-file counts and staleness cover all of them. A linked
+    file's staleness baseline is set from its hash only if it has none — an existing baseline
+    is never moved, or edits since it was recorded would stop staling that file's questions.
     Returns list of inserted question ids."""
+    extra_files = {p: h for p, h in (extra_files or {}).items() if p != file_path}
+    extra_ids = {p: get_or_create_file(p) for p in extra_files}
     file_id = get_or_create_file(file_path)
     seeds_json = json.dumps(seed_query_ids) if seed_query_ids else None
     ids = []
@@ -305,6 +334,13 @@ def insert_questions(
                 "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?",
                 (content_hash, file_id),
             )
+        for p, h in extra_files.items():
+            if h is not None:
+                conn.execute(
+                    "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP "
+                    "WHERE id = ? AND content_hash IS NULL",
+                    (h, extra_ids[p]),
+                )
         for q in questions:
             choices_json = json.dumps(q["choices"]) if "choices" in q else None
             cursor = conn.execute(
@@ -326,7 +362,32 @@ def insert_questions(
                 ),
             )
             ids.append(cursor.lastrowid)
+            for p in extra_files:
+                conn.execute(
+                    "INSERT OR IGNORE INTO question_files (question_id, file_path) VALUES (?, ?)",
+                    (cursor.lastrowid, p),
+                )
     return ids
+
+
+def get_question_files(question_ids: list[int]) -> dict[int, list[str]]:
+    """{question_id: every file it touches, lead file first} — for showing cross-file questions."""
+    if not question_ids:
+        return {}
+    marks = ",".join("?" * len(question_ids))
+    with _conn() as conn:
+        rows = conn.execute(
+            f"SELECT q.id, q.file_path AS lead, f.file_path AS extra FROM questions q "
+            f"LEFT JOIN question_files f ON f.question_id = q.id WHERE q.id IN ({marks}) "
+            f"ORDER BY f.file_path",
+            tuple(question_ids),
+        ).fetchall()
+    out: dict[int, list[str]] = {}
+    for r in rows:
+        out.setdefault(r["id"], [r["lead"]])
+        if r["extra"]:
+            out[r["id"]].append(r["extra"])
+    return out
 
 
 def get_unlabeled_questions(limit: int = 50) -> list[dict]:
@@ -351,7 +412,12 @@ def _paths_filter(file_paths: list[str] | None) -> tuple[str, tuple]:
         return "", ()
     if not file_paths:
         return " AND 0", ()  # explicit empty scope matches nothing
-    return f" AND file_path IN ({','.join('?' * len(file_paths))})", tuple(file_paths)
+    marks = ",".join("?" * len(file_paths))
+    # via question_links, so a cross-file question is in scope when ANY of its files is
+    return (
+        f" AND id IN (SELECT question_id FROM question_links WHERE file_path IN ({marks}))",
+        tuple(file_paths),
+    )
 
 
 def get_unasked_questions(limit: int = 10, file_paths: list[str] | None = None) -> list[dict]:
@@ -436,8 +502,9 @@ def get_golden_counts() -> dict[str, int]:
     """Return {file_path: count} of golden non-stale questions per file."""
     with _conn() as conn:
         rows = conn.execute(
-            "SELECT file_path, COUNT(*) as cnt FROM questions "
-            "WHERE golden = TRUE AND stale = FALSE GROUP BY file_path"
+            "SELECT l.file_path, COUNT(*) as cnt FROM questions q "
+            "JOIN question_links l ON l.question_id = q.id "
+            "WHERE q.golden = TRUE AND q.stale = FALSE GROUP BY l.file_path"
         ).fetchall()
     return {row["file_path"]: row["cnt"] for row in rows}
 
@@ -752,6 +819,16 @@ def get_reviews_for_file(file_path: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def add_review_files(review_id: int, file_paths: list[str]) -> None:
+    """Record the files an inquiry spanned beyond the review's own file."""
+    with _conn() as conn:
+        for p in file_paths:
+            conn.execute(
+                "INSERT OR IGNORE INTO review_files (review_id, file_path) VALUES (?, ?)",
+                (review_id, p),
+            )
+
+
 # --- Review questions ---
 
 
@@ -803,7 +880,16 @@ def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> 
         """,
             (file_path, limit),
         ).fetchall()
-    return [dict(r) for r in rows]
+        seeds = [dict(r) for r in rows]
+        for s in seeds:  # other files the same inquiry spanned
+            s["extra_files"] = [
+                r["file_path"]
+                for r in conn.execute(
+                    "SELECT file_path FROM review_files WHERE review_id = ? ORDER BY file_path",
+                    (s["review_id"],),
+                )
+            ]
+    return seeds
 
 
 # --- Attribution labels ---

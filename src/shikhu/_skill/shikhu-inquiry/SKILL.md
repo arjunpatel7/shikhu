@@ -110,6 +110,9 @@ shikhu record-inquiry "<top file from the packet>" "<their original question>" -
 ```
 
 Pass `--runner-up` and `--runner-up-score` when the packet listed a second file.
+Pass `--also "<path>"` once for each *other* START HERE file in the packet. A question that
+spans several files should be recorded with all of them, so the quiz it seeds can span them
+too and credit each file; skip it for RELATED files, which only sit near the answer.
 
 **A rejection is valuable, not a failure.** It records that the question was real but the
 file was wrong, which is exactly the correction that improves ranking. Record it with the

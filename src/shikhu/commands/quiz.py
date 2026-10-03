@@ -14,6 +14,7 @@ from shikhu.store import (
     discard_revalidation,
     flag_question,
     get_attribution_label,
+    get_question_files,
     get_revalidation_questions,
     get_seed_texts,
     get_unasked_questions,
@@ -163,6 +164,7 @@ def quiz(
     console.print(Rule(f"[bold]Quiz — {total} question{'s' if total != 1 else ''}[/bold]"))
     console.print()
 
+    files_by_q = get_question_files([q["id"] for q in questions])
     for i, q in enumerate(questions, 1):
         choices = json.loads(q["choices"]) if isinstance(q["choices"], str) else q["choices"]
         expected = q["expected_answer"]
@@ -176,7 +178,7 @@ def quiz(
             Panel(
                 f"{q['question_text']}\n\n{choice_text}",
                 title=f"[bold]{i}[/bold] of {total}",
-                subtitle=f"[dim]{q['file_path']}[/dim]",
+                subtitle=f"[dim]{' + '.join(files_by_q.get(q['id'], [q['file_path']]))}[/dim]",
                 border_style="cyan",
             )
         )
