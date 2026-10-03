@@ -24,3 +24,6 @@ workflows.html
 
 # Personal notes
 personal-notes/
+
+# Benchmark harness, datasets and scratch scripts (local only)
+evals/

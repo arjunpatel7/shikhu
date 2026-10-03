@@ -4,6 +4,7 @@ Sections, in file order:
     Connection / schema    _conn (CM), _get_conn (legacy), init_db, MIGRATIONS
     Files                  get_or_create_file, read_file_lines, get_current_git_hash
     Questions              insert/get/grade/golden/flag/coverage helpers
+    Attempts               insert_attempt, get_attempts: who answered what, and how it was graded
     Raw prompts            insert/get/label helpers for transcript-captured prompts
     File summaries         upsert_summary, get_summary, delete_summaries_not_in
     Reviews                start_review, end_review, get_reviews_for_file
@@ -53,6 +54,7 @@ MIGRATIONS = [
     ("questions", "pending_revalidation", "BOOLEAN DEFAULT FALSE"),
     ("questions", "presented_at", "TIMESTAMP"),
     ("questions", "model", "TEXT"),
+    ("questions", "commit_sha", "TEXT"),
 ]
 
 # Column renames for older DBs: (table, old_name, new_name). Applied idempotently
@@ -153,6 +155,25 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id INTEGER NOT NULL REFERENCES questions(id),
+                respondent TEXT NOT NULL,
+                answered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                mode TEXT NOT NULL,
+                answer_text TEXT,
+                correct BOOLEAN,
+                score REAL,
+                graded_by TEXT,
+                condition TEXT,
+                run_id TEXT,
+                meta TEXT,
+                error TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_attempts_question ON attempts(question_id);
+            CREATE INDEX IF NOT EXISTS idx_attempts_run ON attempts(run_id);
+
             CREATE TABLE IF NOT EXISTS attribution_labels (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 query_id INTEGER NOT NULL,
@@ -167,6 +188,28 @@ def init_db():
                 labeled_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- Files a question needs beyond its lead one (questions.file_path). Only the extras
+            -- live here; question_links is the union, so every per-file query counts a
+            -- cross-file question under each file it touches.
+            CREATE TABLE IF NOT EXISTS question_files (
+                question_id INTEGER NOT NULL REFERENCES questions(id),
+                file_path TEXT NOT NULL,
+                PRIMARY KEY (question_id, file_path)
+            );
+            CREATE INDEX IF NOT EXISTS idx_question_files_path ON question_files(file_path);
+
+            -- Every file an inquiry spanned, beyond the one its review is filed under.
+            CREATE TABLE IF NOT EXISTS review_files (
+                review_id INTEGER NOT NULL REFERENCES reviews(id),
+                file_path TEXT NOT NULL,
+                PRIMARY KEY (review_id, file_path)
+            );
+
+            CREATE VIEW IF NOT EXISTS question_links AS
+                SELECT id AS question_id, file_path FROM questions
+                UNION
+                SELECT question_id, file_path FROM question_files;
         """)
         for table, col, typ in MIGRATIONS:
             try:
@@ -181,6 +224,33 @@ def init_db():
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_prompts_session_msg "
             "ON raw_prompts(session_id, message_index)"
         )
+        _backfill_human_attempts(conn)
+
+
+def _backfill_human_attempts(conn: sqlite3.Connection) -> None:
+    """Carry each already-answered question over as one human attempt.
+
+    The questions table only ever held the LATEST answer, so this is the whole history that
+    exists. Idempotent — init_db runs on every command — because it skips any question that
+    already has a human attempt, which also means a later re-answer (which writes its own
+    attempt) never gets a stale backfill row alongside it.
+
+    Skips quietly if the questions table predates the answer columns: init_db runs on every
+    command, so anything that raised here would break shikhu for that user entirely."""
+    have = {r[1] for r in conn.execute("PRAGMA table_info(questions)")}
+    if not {"answered_at", "user_answer", "graded_correct"} <= have:
+        return
+    conn.execute("""
+        INSERT INTO attempts (question_id, respondent, answered_at, mode, answer_text,
+                              correct, graded_by, run_id)
+        SELECT q.id, 'human', q.answered_at, 'choice', q.user_answer,
+               q.graded_correct, 'key', 'backfill'
+        FROM questions q
+        WHERE q.answered_at IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM attempts a WHERE a.question_id = q.id AND a.respondent = 'human'
+          )
+    """)
 
 
 # --- Files ---
@@ -234,6 +304,8 @@ def insert_questions(
     seed_query_source: str | None = None,
     model: str | None = None,
     content_hash: str | None = None,
+    commit_sha: str | None = None,
+    extra_files: dict[str, str | None] | None = None,
 ) -> list[int]:
     """Write generated questions to the DB.
     Each question dict should have: question_text, choices (list[str]), expected_answer,
@@ -243,7 +315,16 @@ def insert_questions(
     Pass content_hash (staleness.compute_file_hash of the content the questions were generated
     from) to set the file's staleness baseline; callers should run mark_stale_questions first
     so older questions are staled against the previous baseline before it moves.
+    Pass commit_sha (staleness.pin_commit) to record the commit at which the file still matches
+    that content, so the question can be reproduced there after the working copy moves on. Leave
+    it None unless verified — it is never filled in from HEAD blindly.
+    Pass extra_files ({path: content_hash}) when the questions need other files too: each is
+    linked to every question, so per-file counts and staleness cover all of them. A linked
+    file's staleness baseline is set from its hash only if it has none — an existing baseline
+    is never moved, or edits since it was recorded would stop staling that file's questions.
     Returns list of inserted question ids."""
+    extra_files = {p: h for p, h in (extra_files or {}).items() if p != file_path}
+    extra_ids = {p: get_or_create_file(p) for p in extra_files}
     file_id = get_or_create_file(file_path)
     seeds_json = json.dumps(seed_query_ids) if seed_query_ids else None
     ids = []
@@ -253,11 +334,18 @@ def insert_questions(
                 "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?",
                 (content_hash, file_id),
             )
+        for p, h in extra_files.items():
+            if h is not None:
+                conn.execute(
+                    "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP "
+                    "WHERE id = ? AND content_hash IS NULL",
+                    (h, extra_ids[p]),
+                )
         for q in questions:
             choices_json = json.dumps(q["choices"]) if "choices" in q else None
             cursor = conn.execute(
-                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, commit_sha, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
                 (
                     file_id,
                     file_path,
@@ -270,10 +358,36 @@ def insert_questions(
                     seeds_json,
                     seed_query_source,
                     model,
+                    commit_sha,
                 ),
             )
             ids.append(cursor.lastrowid)
+            for p in extra_files:
+                conn.execute(
+                    "INSERT OR IGNORE INTO question_files (question_id, file_path) VALUES (?, ?)",
+                    (cursor.lastrowid, p),
+                )
     return ids
+
+
+def get_question_files(question_ids: list[int]) -> dict[int, list[str]]:
+    """{question_id: every file it touches, lead file first} — for showing cross-file questions."""
+    if not question_ids:
+        return {}
+    marks = ",".join("?" * len(question_ids))
+    with _conn() as conn:
+        rows = conn.execute(
+            f"SELECT q.id, q.file_path AS lead, f.file_path AS extra FROM questions q "
+            f"LEFT JOIN question_files f ON f.question_id = q.id WHERE q.id IN ({marks}) "
+            f"ORDER BY f.file_path",
+            tuple(question_ids),
+        ).fetchall()
+    out: dict[int, list[str]] = {}
+    for r in rows:
+        out.setdefault(r["id"], [r["lead"]])
+        if r["extra"]:
+            out[r["id"]].append(r["extra"])
+    return out
 
 
 def get_unlabeled_questions(limit: int = 50) -> list[dict]:
@@ -298,7 +412,12 @@ def _paths_filter(file_paths: list[str] | None) -> tuple[str, tuple]:
         return "", ()
     if not file_paths:
         return " AND 0", ()  # explicit empty scope matches nothing
-    return f" AND file_path IN ({','.join('?' * len(file_paths))})", tuple(file_paths)
+    marks = ",".join("?" * len(file_paths))
+    # via question_links, so a cross-file question is in scope when ANY of its files is
+    return (
+        f" AND id IN (SELECT question_id FROM question_links WHERE file_path IN ({marks}))",
+        tuple(file_paths),
+    )
 
 
 def get_unasked_questions(limit: int = 10, file_paths: list[str] | None = None) -> list[dict]:
@@ -352,11 +471,24 @@ def mark_presented(question_id: int):
 
 
 def grade_question(question_id: int, user_answer: str, correct: bool):
-    """Record the user's answer and grade for a question."""
+    """Record the user's answer and grade for a question.
+
+    Updates the question's latest-answer columns (what coverage reads) AND appends a human
+    attempt, because those columns are overwritten by every re-answer and keep no history.
+    Both happen in one transaction: a second connection would block on this one's write lock."""
     with _conn() as conn:
         conn.execute(
             "UPDATE questions SET answered_at = CURRENT_TIMESTAMP, user_answer = ?, graded_correct = ? WHERE id = ?",
             (user_answer, correct, question_id),
+        )
+        _insert_attempt(
+            conn,
+            question_id,
+            "human",
+            "choice",
+            answer_text=user_answer,
+            correct=correct,
+            graded_by="key",
         )
 
 
@@ -370,8 +502,9 @@ def get_golden_counts() -> dict[str, int]:
     """Return {file_path: count} of golden non-stale questions per file."""
     with _conn() as conn:
         rows = conn.execute(
-            "SELECT file_path, COUNT(*) as cnt FROM questions "
-            "WHERE golden = TRUE AND stale = FALSE GROUP BY file_path"
+            "SELECT l.file_path, COUNT(*) as cnt FROM questions q "
+            "JOIN question_links l ON l.question_id = q.id "
+            "WHERE q.golden = TRUE AND q.stale = FALSE GROUP BY l.file_path"
         ).fetchall()
     return {row["file_path"]: row["cnt"] for row in rows}
 
@@ -435,6 +568,118 @@ def get_file_coverage() -> list[dict]:
             GROUP BY file_path
         """).fetchall()
     return [dict(r) for r in rows]
+
+
+# --- Attempts ---
+#
+# One row per answer, from anyone. `respondent` is "human" or a harness id, so a person and an
+# agent answering the same question never share a slot (questions.graded_correct is a single
+# latest-answer cell and would let an agent overwrite the user's result, moving their coverage).
+# Coverage still reads the questions table; attempts is the record, not yet the source of truth.
+
+
+def _insert_attempt(
+    conn: sqlite3.Connection,
+    question_id: int,
+    respondent: str,
+    mode: str,
+    answer_text: str | None = None,
+    correct: bool | None = None,
+    score: float | None = None,
+    graded_by: str | None = None,
+    condition: str | None = None,
+    run_id: str | None = None,
+    meta: dict | None = None,
+    error: str | None = None,
+) -> int:
+    cursor = conn.execute(
+        """INSERT INTO attempts (question_id, respondent, mode, answer_text, correct, score,
+                                 graded_by, condition, run_id, meta, error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            question_id,
+            respondent,
+            mode,
+            answer_text,
+            correct,
+            score,
+            graded_by,
+            condition,
+            run_id,
+            json.dumps(meta) if meta else None,
+            error,
+        ),
+    )
+    return cursor.lastrowid
+
+
+def insert_attempt(
+    question_id: int,
+    respondent: str,
+    mode: str,
+    answer_text: str | None = None,
+    correct: bool | None = None,
+    score: float | None = None,
+    graded_by: str | None = None,
+    condition: str | None = None,
+    run_id: str | None = None,
+    meta: dict | None = None,
+    error: str | None = None,
+) -> int:
+    """Record one answer. Returns the attempt id.
+
+    respondent  "human", or a harness id such as "claude-code/haiku-4.5".
+    mode        "choice" (picked an option; graded against the key) or "open" (free text).
+    score       the grader's probability for open answers; None for choice.
+    graded_by   "key" for choice, or the grader id for open answers.
+    condition   what the respondent could see, e.g. "no-code", "file", "repo".
+    run_id      groups the attempts of one benchmark run.
+    meta        free-form run stats (tokens, cost, tool calls, seconds) stored as JSON.
+    error       set when the respondent failed to produce an answer; such an attempt is wrong
+                but should be reported separately from a wrong answer."""
+    with _conn() as conn:
+        return _insert_attempt(
+            conn,
+            question_id,
+            respondent,
+            mode,
+            answer_text,
+            correct,
+            score,
+            graded_by,
+            condition,
+            run_id,
+            meta,
+            error,
+        )
+
+
+def get_attempts(
+    question_id: int | None = None,
+    respondent: str | None = None,
+    run_id: str | None = None,
+) -> list[dict]:
+    """Attempts, oldest first, optionally narrowed by question, respondent or run."""
+    clauses, args = [], []
+    for column, value in (
+        ("question_id", question_id),
+        ("respondent", respondent),
+        ("run_id", run_id),
+    ):
+        if value is not None:
+            clauses.append(f"{column} = ?")
+            args.append(value)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with _conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM attempts {where} ORDER BY answered_at, id", args
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["meta"] = json.loads(d["meta"]) if d["meta"] else None
+        out.append(d)
+    return out
 
 
 # --- Raw prompts ---
@@ -574,6 +819,16 @@ def get_reviews_for_file(file_path: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def add_review_files(review_id: int, file_paths: list[str]) -> None:
+    """Record the files an inquiry spanned beyond the review's own file."""
+    with _conn() as conn:
+        for p in file_paths:
+            conn.execute(
+                "INSERT OR IGNORE INTO review_files (review_id, file_path) VALUES (?, ?)",
+                (review_id, p),
+            )
+
+
 # --- Review questions ---
 
 
@@ -616,12 +871,25 @@ def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> 
             FROM review_questions rq
             JOIN reviews r ON rq.review_id = r.id
             WHERE r.file_path = ? AND rq.was_conceptual = TRUE
+              -- Explicitly unsatisfactory questions are poor seeds: for a /shikhu-study
+              -- question the answer was inadequate, and for a detected inquiry the user
+              -- said this file was the wrong place. NULL means "not judged" and still counts.
+              AND (rq.answered_satisfactorily IS NULL OR rq.answered_satisfactorily != 0)
             ORDER BY rq.created_at ASC
             LIMIT ?
         """,
             (file_path, limit),
         ).fetchall()
-    return [dict(r) for r in rows]
+        seeds = [dict(r) for r in rows]
+        for s in seeds:  # other files the same inquiry spanned
+            s["extra_files"] = [
+                r["file_path"]
+                for r in conn.execute(
+                    "SELECT file_path FROM review_files WHERE review_id = ? ORDER BY file_path",
+                    (s["review_id"],),
+                )
+            ]
+    return seeds
 
 
 # --- Attribution labels ---

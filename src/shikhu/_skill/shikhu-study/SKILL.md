@@ -17,6 +17,12 @@ allowed-tools:
 
 Shikhu is a knowledge-coverage CLI that tracks how well a user understands *their own* codebase. It generates MCQ questions from each tracked file via an LLM (OpenRouter), quizzes the user in the terminal, and counts "golden" questions (answered correctly *and* user-validated as testing real understanding) — 3 goldens per file means the file is "covered." `shikhu` is the CLI entry point.
 
+There are two ways in. `/shikhu-study <file>` is the deliberate one: the user picks a file
+and you walk it. The other is **shikhu-inquiry**, which triggers when they ask a conceptual
+question mid-task — same destination, no ceremony. Both write to the same tables, so a
+question asked either way can seed a quiz. If the user is asking about their code in passing
+rather than sitting down to study a file, prefer shikhu-inquiry.
+
 The flow is **code → study → quiz**. `/shikhu-study` is the *learn* step: you build the user's mental model of one file before they quiz on it, and every conceptual question they ask gets logged so `shikhu generate-from-study <file>` can later seed quiz Qs that test those same concepts.
 
 ## Your role

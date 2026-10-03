@@ -6,7 +6,7 @@ from pathlib import Path
 import typer
 from dotenv import find_dotenv, load_dotenv
 
-from shikhu.commands.install_skill import SKILL_NAME, install_skill_files
+from shikhu.commands.install_skill import install_skill_files
 from shikhu.commands.utils import console
 from shikhu.store import init_db
 
@@ -50,7 +50,7 @@ def init(
 
     if not no_skill:
         for dest in install_skill_files(Path.cwd()):
-            console.print(f"  [green]>[/green] Installed /{SKILL_NAME} skill → {dest}")
+            console.print(f"  [green]>[/green] Installed /{dest.parent.name} skill → {dest}")
 
     console.print()
     console.print(

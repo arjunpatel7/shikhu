@@ -16,7 +16,7 @@ from shikhu.commands.utils import (
     get_trackable_files,
 )
 from shikhu.ingest import ingest_recent
-from shikhu.staleness import compute_file_hash, mark_stale_questions
+from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import delete_summaries_not_in, init_db
 
 
@@ -139,6 +139,7 @@ def refresh(
                     prompt_version=PROMPT_VERSION,
                     model=stats.get("model"),
                     content_hash=content_hash,
+                    commit_sha=pin_commit(file_path, content_hash),
                 )
                 return file_path, len(ids), None
             except Exception as e:

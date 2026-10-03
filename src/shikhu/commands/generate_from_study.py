@@ -5,7 +5,7 @@ from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.utils import console, ensure_api_key
 from shikhu.ingest import ingest_recent
-from shikhu.staleness import compute_file_hash, mark_stale_questions
+from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import init_db, insert_questions
 
 
@@ -45,7 +45,11 @@ def generate_from_study(
         )
         raise typer.Exit(code=1)
 
-    quiz, stats, seed_ids = result
+    quiz, stats, seed_ids, extra_paths = result
+    extra_hashes = {p: compute_file_hash(p) for p in extra_paths}
+    pins = {pin_commit(p, h) for p, h in {file_path: content_hash, **extra_hashes}.items()}
+    # one commit pin only if EVERY file still matches it; otherwise the pin would be false
+    commit_sha = pins.pop() if len(pins) == 1 and None not in pins else None
     rows = _quiz_to_rows(quiz)
     ids = insert_questions(
         file_path,
@@ -55,10 +59,13 @@ def generate_from_study(
         seed_query_source="review_questions",
         model=stats.get("model"),
         content_hash=content_hash,
+        commit_sha=commit_sha,
+        extra_files=extra_hashes,
     )
 
     console.print(
-        f"[green]>[/green] Generated [bold]{len(ids)}[/bold] question(s) for [bold]{file_path}[/bold]"
+        f"[green]>[/green] Generated [bold]{len(ids)}[/bold] question(s) for "
+        f"[bold]{' + '.join([file_path, *extra_paths])}[/bold]"
     )
     console.print(
         f"  [dim]{stats['completion_tokens']} completion tokens, {stats['elapsed']:.1f}s · seeded by {len(seed_ids)} /shikhu-study question(s)[/dim]"

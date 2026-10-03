@@ -8,6 +8,7 @@ from shikhu.commands.clean import clean
 from shikhu.commands.coverage import coverage
 from shikhu.commands.generate_from_study import generate_from_study
 from shikhu.commands.init import init
+from shikhu.commands.inquiry import inquiry_packet, record_inquiry
 from shikhu.commands.install_skill import install_skill
 from shikhu.commands.quiz import quiz
 from shikhu.commands.refresh import refresh
@@ -44,6 +45,8 @@ app.command("study-context")(study_context)
 app.command("log-review")(log_review)
 app.command("log-study-question")(log_study_question)
 app.command("generate-from-study")(generate_from_study)
+app.command("inquiry-packet")(inquiry_packet)
+app.command("record-inquiry")(record_inquiry)
 
 if __name__ == "__main__":
     app()

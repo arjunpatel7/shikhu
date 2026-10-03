@@ -10,6 +10,11 @@ import requests
 from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
 
+from shikhu.openrouter import (
+    ERROR_SNIPPET,
+    check_response,
+    headers,
+)
 from shikhu.store import read_file_lines
 
 # Load .env at import so OPENROUTER_API_KEY is present before any request is made.
@@ -21,22 +26,8 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "inception/mercury-2.5"
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
-# OpenRouter app attribution: identifies shikhu on openrouter.ai/apps and model
-# leaderboards. Only the app name/URL below is sent; no user or prompt data.
-# APP_URL is the app's permanent id — changing it starts a separate app with
-# separate stats, so a future paid product gets its own URL rather than reusing this.
-APP_URL = "https://github.com/arjunpatel7/shikhu"
-APP_TITLE = "shikhu"
-APP_CATEGORIES = "programming-app"
-
-
-def _api_key() -> str:
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if not key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is not set — add it to a .env file in this repo or export it"
-        )
-    return key
+# Auth, app attribution (APP_URL/APP_TITLE/APP_CATEGORIES) and the shared error shape
+# now live in `openrouter`, since `systemone` needs the same three things.
 
 
 def get_model() -> str:
@@ -46,16 +37,10 @@ def get_model() -> str:
 
 def _check_response(response: requests.Response) -> dict:
     """Return the parsed JSON body, raising a readable error on API failure."""
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"OpenRouter API error (HTTP {response.status_code}): {response.text[:300]}"
-        )
-    data = response.json()
-    if "error" in data:
-        raise RuntimeError(f"OpenRouter API error: {str(data['error'])[:300]}")
+    data = check_response(response, "OpenRouter")
     choice = (data.get("choices") or [{}])[0]
     if choice.get("error"):
-        raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:300]}")
+        raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:ERROR_SNIPPET]}")
     if choice.get("finish_reason") == "length":
         raise RuntimeError("Model response was truncated (hit max_tokens)")
     return data
@@ -82,13 +67,7 @@ def _chat(prompt: str, max_tokens: int, response_format: dict | None = None) -> 
     start = time.time()
     response = requests.post(
         OPENROUTER_URL,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {_api_key()}",
-            "HTTP-Referer": APP_URL,
-            "X-OpenRouter-Title": APP_TITLE,
-            "X-OpenRouter-Categories": APP_CATEGORIES,
-        },
+        headers=headers(),
         json=payload,
         timeout=REQUEST_TIMEOUT,
     )
@@ -190,13 +169,23 @@ def generate_question_from_file(file_path, num_questions: int = 5) -> tuple[Quiz
     return generate_quiz(prompt)
 
 
+MAX_EXTRA_FILES = 3  # an inquiry spanning more than this is a survey, not a question
+
+CROSS_FILE_RULE = (
+    "The developer's questions spanned several of the files below. Where a concept involves how "
+    "they work together, write the question so it needs facts from more than one of them."
+)
+
+
 def generate_questions_from_study_seeds(
     file_path: str,
     num_questions: int = 3,
-) -> tuple[Quiz, dict, list[int]] | None:
+) -> tuple[Quiz, dict, list[int], list[str]] | None:
     """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
-    Returns (quiz, stats, seed_review_question_ids) or None if no seeds / file missing."""
+    When the inquiries behind the seeds spanned more files (record-inquiry --also), those are
+    shown too so questions can cross files. Returns (quiz, stats, seed_review_question_ids,
+    extra_files) or None if no seeds / file missing."""
     from shikhu.store import get_conceptual_study_questions_for_file
 
     seeds = get_conceptual_study_questions_for_file(file_path)
@@ -209,15 +198,25 @@ def generate_questions_from_study_seeds(
 
     seed_block = "\n".join(f"{i + 1}. {s['question_text']}" for i, s in enumerate(seeds))
 
+    extra: dict[str, str] = {}  # in the order the inquiries named them, capped, files that exist
+    for s in seeds:
+        for p in s.get("extra_files", []):
+            ctx = build_context_from_file(p) if p != file_path and p not in extra else None
+            if ctx is not None and len(extra) < MAX_EXTRA_FILES:
+                extra[p] = ctx["code"]
+
+    files_block = f"File: {context['file_path']}\n\n{context['code']}" + "".join(
+        f"\n\nFile: {p}\n\n{code}" for p, code in extra.items()
+    )
     prompt = (
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{STUDY_SEED_PROMPT.format(n=num_questions, seed_questions=seed_block)}\n\n"
-        f"File: {context['file_path']}\n\n"
-        f"{context['code']}"
+        + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
+        + files_block
     )
 
     quiz, stats = generate_quiz(prompt)
-    return quiz, stats, [s["id"] for s in seeds]
+    return quiz, stats, [s["id"] for s in seeds], list(extra)
 
 
 def generate_summary(file_path: str, max_tokens: int = 600) -> tuple[str, dict] | None:
@@ -237,8 +236,9 @@ def _get_unasked_counts() -> dict[str, int]:
 
     conn = _get_conn()
     rows = conn.execute(
-        "SELECT file_path, COUNT(*) as cnt FROM questions "
-        "WHERE answered_at IS NULL AND stale = FALSE GROUP BY file_path"
+        "SELECT l.file_path, COUNT(*) as cnt FROM questions q "
+        "JOIN question_links l ON l.question_id = q.id "
+        "WHERE q.answered_at IS NULL AND q.stale = FALSE GROUP BY l.file_path"
     ).fetchall()
     conn.close()
     return {row["file_path"]: row["cnt"] for row in rows}

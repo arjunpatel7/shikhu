@@ -6,9 +6,15 @@ when none do, and `shikhu init` must install it unless told not to.
 
 from shikhu.commands.install_skill import install_skill_files
 
+SKILLS = ("shikhu-inquiry", "shikhu-study")
 
-def _skill_path(base, agent):
-    return base / agent / "skills" / "shikhu-study" / "SKILL.md"
+
+def _skill_path(base, agent, name="shikhu-study"):
+    return base / agent / "skills" / name / "SKILL.md"
+
+
+def _all_paths(base, *agents):
+    return {_skill_path(base, a, n) for a in agents for n in SKILLS}
 
 
 def test_installs_into_claude_when_only_claude_exists(tmp_path):
@@ -16,8 +22,13 @@ def test_installs_into_claude_when_only_claude_exists(tmp_path):
 
     written = install_skill_files(tmp_path)
 
-    assert written == [_skill_path(tmp_path, ".claude")]
+    assert set(written) == _all_paths(tmp_path, ".claude")
     assert _skill_path(tmp_path, ".claude").read_text().startswith("---\nname: shikhu-study")
+    assert (
+        _skill_path(tmp_path, ".claude", "shikhu-inquiry")
+        .read_text()
+        .startswith("---\nname: shikhu-inquiry")
+    )
 
 
 def test_installs_into_agents_when_only_agents_exists(tmp_path):
@@ -25,13 +36,13 @@ def test_installs_into_agents_when_only_agents_exists(tmp_path):
 
     written = install_skill_files(tmp_path)
 
-    assert written == [_skill_path(tmp_path, ".agents")]
+    assert set(written) == _all_paths(tmp_path, ".agents")
 
 
 def test_falls_back_to_both_when_no_agent_dir_exists(tmp_path):
     written = install_skill_files(tmp_path)
 
-    assert set(written) == {_skill_path(tmp_path, ".claude"), _skill_path(tmp_path, ".agents")}
+    assert set(written) == _all_paths(tmp_path, ".claude", ".agents")
 
 
 def test_init_installs_the_skill(tmp_path, monkeypatch):
@@ -41,8 +52,8 @@ def test_init_installs_the_skill(tmp_path, monkeypatch):
     init_mod.init(no_skill=False)
 
     # No agent dir existed, so it falls back to both.
-    assert _skill_path(tmp_path, ".claude").exists()
-    assert _skill_path(tmp_path, ".agents").exists()
+    for path in _all_paths(tmp_path, ".claude", ".agents"):
+        assert path.exists(), path
 
 
 def test_init_no_skill_flag_skips_install(tmp_path, monkeypatch):
