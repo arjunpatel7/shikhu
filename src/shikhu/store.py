@@ -4,6 +4,7 @@ Sections, in file order:
     Connection / schema    _conn (CM), _get_conn (legacy), init_db, MIGRATIONS
     Files                  get_or_create_file, read_file_lines, get_current_git_hash
     Questions              insert/get/grade/golden/flag/coverage helpers
+    Attempts               insert_attempt, get_attempts: who answered what, and how it was graded
     Raw prompts            insert/get/label helpers for transcript-captured prompts
     File summaries         upsert_summary, get_summary, delete_summaries_not_in
     Reviews                start_review, end_review, get_reviews_for_file
@@ -153,6 +154,25 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id INTEGER NOT NULL REFERENCES questions(id),
+                respondent TEXT NOT NULL,
+                answered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                mode TEXT NOT NULL,
+                answer_text TEXT,
+                correct BOOLEAN,
+                score REAL,
+                graded_by TEXT,
+                condition TEXT,
+                run_id TEXT,
+                meta TEXT,
+                error TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_attempts_question ON attempts(question_id);
+            CREATE INDEX IF NOT EXISTS idx_attempts_run ON attempts(run_id);
+
             CREATE TABLE IF NOT EXISTS attribution_labels (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 query_id INTEGER NOT NULL,
@@ -181,6 +201,33 @@ def init_db():
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_prompts_session_msg "
             "ON raw_prompts(session_id, message_index)"
         )
+        _backfill_human_attempts(conn)
+
+
+def _backfill_human_attempts(conn: sqlite3.Connection) -> None:
+    """Carry each already-answered question over as one human attempt.
+
+    The questions table only ever held the LATEST answer, so this is the whole history that
+    exists. Idempotent — init_db runs on every command — because it skips any question that
+    already has a human attempt, which also means a later re-answer (which writes its own
+    attempt) never gets a stale backfill row alongside it.
+
+    Skips quietly if the questions table predates the answer columns: init_db runs on every
+    command, so anything that raised here would break shikhu for that user entirely."""
+    have = {r[1] for r in conn.execute("PRAGMA table_info(questions)")}
+    if not {"answered_at", "user_answer", "graded_correct"} <= have:
+        return
+    conn.execute("""
+        INSERT INTO attempts (question_id, respondent, answered_at, mode, answer_text,
+                              correct, graded_by, run_id)
+        SELECT q.id, 'human', q.answered_at, 'choice', q.user_answer,
+               q.graded_correct, 'key', 'backfill'
+        FROM questions q
+        WHERE q.answered_at IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM attempts a WHERE a.question_id = q.id AND a.respondent = 'human'
+          )
+    """)
 
 
 # --- Files ---
@@ -352,11 +399,24 @@ def mark_presented(question_id: int):
 
 
 def grade_question(question_id: int, user_answer: str, correct: bool):
-    """Record the user's answer and grade for a question."""
+    """Record the user's answer and grade for a question.
+
+    Updates the question's latest-answer columns (what coverage reads) AND appends a human
+    attempt, because those columns are overwritten by every re-answer and keep no history.
+    Both happen in one transaction: a second connection would block on this one's write lock."""
     with _conn() as conn:
         conn.execute(
             "UPDATE questions SET answered_at = CURRENT_TIMESTAMP, user_answer = ?, graded_correct = ? WHERE id = ?",
             (user_answer, correct, question_id),
+        )
+        _insert_attempt(
+            conn,
+            question_id,
+            "human",
+            "choice",
+            answer_text=user_answer,
+            correct=correct,
+            graded_by="key",
         )
 
 
@@ -435,6 +495,118 @@ def get_file_coverage() -> list[dict]:
             GROUP BY file_path
         """).fetchall()
     return [dict(r) for r in rows]
+
+
+# --- Attempts ---
+#
+# One row per answer, from anyone. `respondent` is "human" or a harness id, so a person and an
+# agent answering the same question never share a slot (questions.graded_correct is a single
+# latest-answer cell and would let an agent overwrite the user's result, moving their coverage).
+# Coverage still reads the questions table; attempts is the record, not yet the source of truth.
+
+
+def _insert_attempt(
+    conn: sqlite3.Connection,
+    question_id: int,
+    respondent: str,
+    mode: str,
+    answer_text: str | None = None,
+    correct: bool | None = None,
+    score: float | None = None,
+    graded_by: str | None = None,
+    condition: str | None = None,
+    run_id: str | None = None,
+    meta: dict | None = None,
+    error: str | None = None,
+) -> int:
+    cursor = conn.execute(
+        """INSERT INTO attempts (question_id, respondent, mode, answer_text, correct, score,
+                                 graded_by, condition, run_id, meta, error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            question_id,
+            respondent,
+            mode,
+            answer_text,
+            correct,
+            score,
+            graded_by,
+            condition,
+            run_id,
+            json.dumps(meta) if meta else None,
+            error,
+        ),
+    )
+    return cursor.lastrowid
+
+
+def insert_attempt(
+    question_id: int,
+    respondent: str,
+    mode: str,
+    answer_text: str | None = None,
+    correct: bool | None = None,
+    score: float | None = None,
+    graded_by: str | None = None,
+    condition: str | None = None,
+    run_id: str | None = None,
+    meta: dict | None = None,
+    error: str | None = None,
+) -> int:
+    """Record one answer. Returns the attempt id.
+
+    respondent  "human", or a harness id such as "claude-code/haiku-4.5".
+    mode        "choice" (picked an option; graded against the key) or "open" (free text).
+    score       the grader's probability for open answers; None for choice.
+    graded_by   "key" for choice, or the grader id for open answers.
+    condition   what the respondent could see, e.g. "no-code", "file", "repo".
+    run_id      groups the attempts of one benchmark run.
+    meta        free-form run stats (tokens, cost, tool calls, seconds) stored as JSON.
+    error       set when the respondent failed to produce an answer; such an attempt is wrong
+                but should be reported separately from a wrong answer."""
+    with _conn() as conn:
+        return _insert_attempt(
+            conn,
+            question_id,
+            respondent,
+            mode,
+            answer_text,
+            correct,
+            score,
+            graded_by,
+            condition,
+            run_id,
+            meta,
+            error,
+        )
+
+
+def get_attempts(
+    question_id: int | None = None,
+    respondent: str | None = None,
+    run_id: str | None = None,
+) -> list[dict]:
+    """Attempts, oldest first, optionally narrowed by question, respondent or run."""
+    clauses, args = [], []
+    for column, value in (
+        ("question_id", question_id),
+        ("respondent", respondent),
+        ("run_id", run_id),
+    ):
+        if value is not None:
+            clauses.append(f"{column} = ?")
+            args.append(value)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with _conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM attempts {where} ORDER BY answered_at, id", args
+        ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["meta"] = json.loads(d["meta"]) if d["meta"] else None
+        out.append(d)
+    return out
 
 
 # --- Raw prompts ---
