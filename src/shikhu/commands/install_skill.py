@@ -1,6 +1,6 @@
-"""shikhu install-skill — drop the /shikhu-study skill into an agent's skills dir.
+"""shikhu install-skill — drop shikhu's skills into an agent's skills dir.
 
-The skill markdown is bundled in the package (src/shikhu/_skill/SKILL.md), so
+The skill markdown is bundled in the package (src/shikhu/_skill/<name>/SKILL.md), so
 installing it requires the CLI to be present and keeps the two version-matched.
 Agents read skills from different locations: Claude Code uses `.claude/skills/`,
 while Codex/Cursor/OpenCode use the shared `.agents/skills/`. We install into
@@ -13,15 +13,22 @@ import typer
 
 from shikhu.commands.utils import console
 
-SKILL_NAME = "shikhu-study"
-
 # Marker dir that signals an agent is in use -> the skills dir to install into.
 AGENT_SKILL_DIRS = {
     ".claude": ".claude/skills",  # Claude Code
     ".agents": ".agents/skills",  # Codex, Cursor, OpenCode, ... (shared convention)
 }
 
-_SKILL_SOURCE = Path(__file__).parent.parent / "_skill" / "SKILL.md"
+_SKILL_ROOT = Path(__file__).parent.parent / "_skill"
+
+
+def bundled_skills() -> dict[str, Path]:
+    """{skill name: SKILL.md path} for every skill shipped in the wheel.
+
+    Discovered rather than listed so adding a skill is a new directory, not an edit here."""
+    return {
+        d.name: d / "SKILL.md" for d in sorted(_SKILL_ROOT.iterdir()) if (d / "SKILL.md").is_file()
+    }
 
 
 def _targets(base: Path) -> list[Path]:
@@ -39,13 +46,13 @@ def install_skill_files(base: Path) -> list[Path]:
 
     Returns the list of SKILL.md paths written.
     """
-    source = _SKILL_SOURCE.read_text()
     written: list[Path] = []
     for skills_dir in _targets(base):
-        dest = skills_dir / SKILL_NAME / "SKILL.md"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(source)
-        written.append(dest)
+        for name, source in bundled_skills().items():
+            dest = skills_dir / name / "SKILL.md"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(source.read_text())
+            written.append(dest)
     return written
 
 
@@ -54,12 +61,14 @@ def install_skill(
         False, "--global", help="Install into your home dir (~/) instead of this project."
     ),
 ):
-    """Install the /shikhu-study skill for your coding agent."""
+    """Install shikhu's skills for your coding agent."""
     base = Path.home() if global_ else Path.cwd()
     written = install_skill_files(base)
     for dest in written:
-        console.print(f"  [green]>[/green] Installed /{SKILL_NAME} skill → {dest}")
+        console.print(f"  [green]>[/green] Installed /{dest.parent.name} skill → {dest}")
     console.print(
-        f"\n  Use it in your agent with [bold]/{SKILL_NAME} <file>[/bold] "
-        "(restart the agent if it doesn't show up yet)."
+        "\n  [bold]/shikhu-study <file>[/bold] walks you through a file. "
+        "[bold]/shikhu-inquiry[/bold] answers a question about your code and banks it — "
+        "invoke it directly any time, or just ask and it will often trigger on its own."
+        "\n  [dim](restart the agent if they don't show up yet)[/dim]"
     )

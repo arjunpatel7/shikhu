@@ -794,6 +794,10 @@ def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> 
             FROM review_questions rq
             JOIN reviews r ON rq.review_id = r.id
             WHERE r.file_path = ? AND rq.was_conceptual = TRUE
+              -- Explicitly unsatisfactory questions are poor seeds: for a /shikhu-study
+              -- question the answer was inadequate, and for a detected inquiry the user
+              -- said this file was the wrong place. NULL means "not judged" and still counts.
+              AND (rq.answered_satisfactorily IS NULL OR rq.answered_satisfactorily != 0)
             ORDER BY rq.created_at ASC
             LIMIT ?
         """,
