@@ -5,7 +5,7 @@ from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.utils import console, ensure_api_key
 from shikhu.ingest import ingest_recent
-from shikhu.staleness import compute_file_hash, mark_stale_questions
+from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import init_db, insert_questions
 
 
@@ -55,6 +55,7 @@ def generate_from_study(
         seed_query_source="review_questions",
         model=stats.get("model"),
         content_hash=content_hash,
+        commit_sha=pin_commit(file_path, content_hash),
     )
 
     console.print(

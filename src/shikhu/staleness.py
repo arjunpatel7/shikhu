@@ -10,8 +10,9 @@ are marked stale. No git dependency required.
 
 import ast
 import hashlib
+import subprocess
 
-from shikhu.store import _get_conn
+from shikhu.store import _get_conn, get_current_git_hash
 
 
 def _strip_docstrings(tree: ast.AST) -> None:
@@ -43,19 +44,13 @@ def _ast_hash(source: str) -> str:
     return hashlib.sha256(ast.dump(tree).encode()).hexdigest()
 
 
-def compute_file_hash(filepath: str) -> str | None:
-    """Content hash of a file. Returns None if the file is missing.
+def hash_content(filepath: str, content: bytes) -> str:
+    """Content hash of `content` as it would be for a file named `filepath`.
 
     Python files are hashed over their AST so comment/whitespace/docstring
     edits don't count as changes. Everything else — and any .py file that
-    fails to parse — uses a SHA-256 byte hash.
+    fails to parse — uses a SHA-256 byte hash. The path only picks the strategy.
     """
-    try:
-        with open(filepath, "rb") as f:
-            content = f.read()
-    except FileNotFoundError:
-        return None
-
     if filepath.endswith(".py"):
         try:
             return _ast_hash(content.decode("utf-8"))
@@ -63,6 +58,40 @@ def compute_file_hash(filepath: str) -> str | None:
             pass  # malformed Python — fall back to the byte hash below
 
     return hashlib.sha256(content).hexdigest()
+
+
+def compute_file_hash(filepath: str) -> str | None:
+    """Content hash of a file on disk. Returns None if the file is missing."""
+    try:
+        with open(filepath, "rb") as f:
+            content = f.read()
+    except FileNotFoundError:
+        return None
+    return hash_content(filepath, content)
+
+
+def pin_commit(filepath: str, content_hash: str | None) -> str | None:
+    """HEAD's sha, if the file at HEAD hashes identically to `content_hash`; else None.
+
+    A question is only reproducible at a commit whose copy of the file is what the question
+    was written about. Recording HEAD unconditionally would pin questions to trees they were
+    never about whenever the working copy had uncommitted edits — a wrong pin is worse than
+    none, so anything unverifiable (no hash, untracked, edited since HEAD, no git) is None.
+
+    Compared with the same hash the staleness check uses, so for Python this means the code
+    is identical at HEAD, not necessarily the comments or docstrings.
+    """
+    if not content_hash:
+        return None
+    try:
+        shown = subprocess.run(["git", "show", f"HEAD:./{filepath}"], capture_output=True)
+    except FileNotFoundError:
+        return None  # git not installed
+    if shown.returncode != 0:
+        return None  # not a repo, no commits yet, or not tracked at HEAD
+    if hash_content(filepath, shown.stdout) != content_hash:
+        return None
+    return get_current_git_hash()
 
 
 def mark_stale_questions() -> int:

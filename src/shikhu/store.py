@@ -54,6 +54,7 @@ MIGRATIONS = [
     ("questions", "pending_revalidation", "BOOLEAN DEFAULT FALSE"),
     ("questions", "presented_at", "TIMESTAMP"),
     ("questions", "model", "TEXT"),
+    ("questions", "commit_sha", "TEXT"),
 ]
 
 # Column renames for older DBs: (table, old_name, new_name). Applied idempotently
@@ -281,6 +282,7 @@ def insert_questions(
     seed_query_source: str | None = None,
     model: str | None = None,
     content_hash: str | None = None,
+    commit_sha: str | None = None,
 ) -> list[int]:
     """Write generated questions to the DB.
     Each question dict should have: question_text, choices (list[str]), expected_answer,
@@ -290,6 +292,9 @@ def insert_questions(
     Pass content_hash (staleness.compute_file_hash of the content the questions were generated
     from) to set the file's staleness baseline; callers should run mark_stale_questions first
     so older questions are staled against the previous baseline before it moves.
+    Pass commit_sha (staleness.pin_commit) to record the commit at which the file still matches
+    that content, so the question can be reproduced there after the working copy moves on. Leave
+    it None unless verified — it is never filled in from HEAD blindly.
     Returns list of inserted question ids."""
     file_id = get_or_create_file(file_path)
     seeds_json = json.dumps(seed_query_ids) if seed_query_ids else None
@@ -303,8 +308,8 @@ def insert_questions(
         for q in questions:
             choices_json = json.dumps(q["choices"]) if "choices" in q else None
             cursor = conn.execute(
-                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, commit_sha, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
                 (
                     file_id,
                     file_path,
@@ -317,6 +322,7 @@ def insert_questions(
                     seeds_json,
                     seed_query_source,
                     model,
+                    commit_sha,
                 ),
             )
             ids.append(cursor.lastrowid)
