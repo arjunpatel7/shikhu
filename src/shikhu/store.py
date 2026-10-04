@@ -33,7 +33,7 @@ SEED_WEIGHT_UNSEEDED = 10
 
 _SEED_BIAS_SQL = (
     f"(ABS(RANDOM()) % 100000) * (CASE "
-    f"WHEN seed_query_ids IS NOT NULL AND created_at >= datetime('now', '-{SEED_BIAS_RECENT_DAYS} days') THEN {SEED_WEIGHT_RECENT} "
+    f"WHEN seed_query_ids IS NOT NULL AND COALESCE(reasked_at, created_at) >= datetime('now', '-{SEED_BIAS_RECENT_DAYS} days') THEN {SEED_WEIGHT_RECENT} "
     f"WHEN seed_query_ids IS NOT NULL THEN {SEED_WEIGHT_OLDER} "
     f"ELSE {SEED_WEIGHT_UNSEEDED} END)"
 )
@@ -55,6 +55,7 @@ MIGRATIONS = [
     ("questions", "presented_at", "TIMESTAMP"),
     ("questions", "model", "TEXT"),
     ("questions", "commit_sha", "TEXT"),
+    ("questions", "reasked_at", "TIMESTAMP"),
 ]
 
 # Column renames for older DBs: (table, old_name, new_name). Applied idempotently
@@ -862,8 +863,24 @@ def get_study_questions(review_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> list[dict]:
-    """Return conceptual questions the user asked across all /shikhu-study sessions for this file, oldest first."""
+def _consumed_seed_ids(conn: sqlite3.Connection) -> set[int]:
+    """Seeds that already have a quiz question. Stale questions don't count: once the code a
+    question was written about has changed, its seed should produce a fresh one."""
+    rows = conn.execute(
+        "SELECT seed_query_ids FROM questions "
+        "WHERE seed_query_source = 'review_questions' AND seed_query_ids IS NOT NULL "
+        "AND stale = FALSE"
+    ).fetchall()
+    return {i for r in rows for i in json.loads(r["seed_query_ids"])}
+
+
+def get_conceptual_study_questions_for_file(
+    file_path: str, limit: int = 50, unconsumed: bool = False
+) -> list[dict]:
+    """Return conceptual questions the user asked across all /shikhu-study sessions for this file, oldest first.
+
+    unconsumed=True drops seeds that already have a non-stale quiz question, so generating again
+    does not write near-duplicates of questions you already have."""
     with _conn() as conn:
         rows = conn.execute(
             """
@@ -878,9 +895,12 @@ def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> 
             ORDER BY rq.created_at ASC
             LIMIT ?
         """,
-            (file_path, limit),
+            (file_path, -1 if unconsumed else limit),  # -1: no limit, applied after filtering
         ).fetchall()
         seeds = [dict(r) for r in rows]
+        if unconsumed:
+            consumed = _consumed_seed_ids(conn)
+            seeds = [s for s in seeds if s["id"] not in consumed][:limit]
         for s in seeds:  # other files the same inquiry spanned
             s["extra_files"] = [
                 r["file_path"]
@@ -890,6 +910,46 @@ def get_conceptual_study_questions_for_file(file_path: str, limit: int = 50) -> 
                 )
             ]
     return seeds
+
+
+def get_requeueable_questions(file_path: str) -> list[dict]:
+    """Questions for this file (lead or linked) that are fresh and still unanswered: the ones a
+    re-asked question can be matched to, because answering them is still ahead of the user."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """SELECT q.id, q.question_text, q.expected_answer FROM questions q
+               JOIN question_links l ON l.question_id = q.id
+               WHERE l.file_path = ? AND q.stale = FALSE AND q.answered_at IS NULL
+               ORDER BY q.id""",
+            (file_path,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def requeue_question(question_id: int, seed_ids: list[int]) -> None:
+    """Record that the user asked about this question's concept again.
+
+    The new inquiry joins the question's seeds, so it counts as consumed, and `reasked_at` moves
+    the question into the recent-seed window so quizzes favor it. Asking again is not credit: it
+    earns nothing until the question is answered."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT seed_query_ids, seed_query_source FROM questions WHERE id = ?", (question_id,)
+        ).fetchone()
+        if row is None:
+            return
+        seeds = json.loads(row["seed_query_ids"]) if row["seed_query_ids"] else []
+        if row["seed_query_source"] in (None, "review_questions"):
+            seeds = sorted({*seeds, *seed_ids})
+            conn.execute(
+                "UPDATE questions SET seed_query_ids = ?, seed_query_source = 'review_questions', "
+                "reasked_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (json.dumps(seeds), question_id),
+            )
+        else:  # seeded from something else: still favor it, just don't mix seed sources
+            conn.execute(
+                "UPDATE questions SET reasked_at = CURRENT_TIMESTAMP WHERE id = ?", (question_id,)
+            )
 
 
 # --- Attribution labels ---

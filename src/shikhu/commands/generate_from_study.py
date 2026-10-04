@@ -35,7 +35,53 @@ def generate_from_study(
     # Stale older questions against the previous baseline before the new questions move it.
     mark_stale_questions()
     content_hash = compute_file_hash(file_path)
-    result = generate_questions_from_study_seeds(file_path, num_questions=n)
+    from shikhu.inquiry import ALIGN_THRESHOLD, match_existing
+    from shikhu.store import (
+        get_conceptual_study_questions_for_file,
+        get_requeueable_questions,
+        requeue_question,
+    )
+
+    seeds = get_conceptual_study_questions_for_file(file_path, unconsumed=True)
+    if not seeds and get_conceptual_study_questions_for_file(file_path):
+        console.print(
+            f"[dim]Every question you asked about {file_path} already has a quiz question. "
+            f"Try `shikhu quiz --file {file_path}`.[/dim]"
+        )
+        return
+
+    # A re-asked question that matches an unanswered quiz question is re-queued, not duplicated.
+    open_questions = {
+        q["id"]: f"{q['question_text']} (answer: {q['expected_answer']})"
+        for q in get_requeueable_questions(file_path)
+    }
+    fresh, requeued = [], 0
+    for seed in seeds:
+        best, p = None, 0.0
+        if open_questions:
+            try:
+                probs = match_existing(seed["question_text"], open_questions)
+                best = max(probs, key=probs.get) if probs else None
+                p = probs.get(best, 0.0)
+            except Exception:
+                pass  # the match is an optimization; never block generation on it
+        if best is not None and p >= ALIGN_THRESHOLD:
+            requeue_question(best, [seed["id"]])
+            open_questions.pop(best)  # one re-ask per question
+            requeued += 1
+        else:
+            fresh.append(seed)
+    if requeued:
+        console.print(
+            f"[green]>[/green] {requeued} question(s) you asked again already have a quiz question; "
+            "moved to the front of your next quiz."
+        )
+    if seeds and not fresh:
+        return
+
+    result = generate_questions_from_study_seeds(
+        file_path, num_questions=n, seeds=fresh if seeds else None
+    )
     if result is None:
         console.print(
             f"[yellow]No conceptual /shikhu-study questions found for {file_path}, or file is missing.[/yellow]"
