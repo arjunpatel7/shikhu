@@ -141,6 +141,54 @@ def generate_quiz(prompt: str, max_tokens: int = 2000) -> tuple[Quiz, dict]:
     return Quiz.model_validate_json(content), stats
 
 
+# A multiple-choice question whose key is the longest option can be answered by picking the most
+# detailed one. Models write the right answer with the most care, so it tends to come out longest
+# (it was the longest option in 7 of the first 7 seeded questions we reviewed).
+LENGTH_CUE_RATIO = 1.1  # key must be MORE than 10% longer than the longest wrong option
+
+CHOICE_LENGTH_RULE = (
+    "Make all four choices the same kind of statement and about the same length and level of "
+    "detail. The correct choice must not be the longest or the most specific one: a reader "
+    "should not be able to find it by length alone."
+)
+
+CHOICE_LENGTH_RETRY = (
+    "Your previous attempt made the correct choice noticeably longer than the wrong ones. "
+    "Rewrite the wrong choices so each is as long and as detailed as the correct one, while "
+    "still being plausible and wrong."
+)
+
+
+def length_cue(q: MCQuestion) -> bool:
+    """True if the key is longer than every wrong choice by more than LENGTH_CUE_RATIO."""
+    key = len(q.choices[q.correct_index])
+    longest_wrong = max(len(c) for i, c in enumerate(q.choices) if i != q.correct_index)
+    return key > longest_wrong * LENGTH_CUE_RATIO
+
+
+def _generate_checked(prompt: str) -> tuple[Quiz, dict]:
+    """generate_quiz, retried once if any question's key is the obvious longest choice.
+
+    Keeps whichever attempt has fewer such questions (the first on a tie); anything that still
+    has the cue is flagged by _quiz_to_rows so it can be counted. Elapsed time and cost cover
+    both attempts."""
+    quiz, stats = generate_quiz(prompt)
+    cues = sum(length_cue(q) for q in quiz.questions)
+    if not cues:
+        return quiz, stats
+    retry, retry_stats = generate_quiz(f"{prompt}\n\n{CHOICE_LENGTH_RETRY}")
+    if sum(length_cue(q) for q in retry.questions) < cues:
+        quiz, kept, other = retry, retry_stats, stats
+    else:
+        kept, other = stats, retry_stats
+    kept = dict(kept)
+    kept["elapsed"] = (kept.get("elapsed") or 0) + (other.get("elapsed") or 0)
+    if kept.get("cost") is not None or other.get("cost") is not None:
+        kept["cost"] = (kept.get("cost") or 0) + (other.get("cost") or 0)
+    kept["length_cue_retried"] = True
+    return quiz, kept
+
+
 # context builders
 def build_context_from_file(file_path: str) -> dict | None:
     """Read an entire file from disk, return structured context for prompt construction."""
@@ -162,11 +210,12 @@ def generate_question_from_file(file_path, num_questions: int = 5) -> tuple[Quiz
     prompt = (
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{FILE_PROMPT.format(n=num_questions)}\n\n"
+        f"{CHOICE_LENGTH_RULE}\n\n"
         f"File: {context['file_path']}\n\n"
         f"{context['code']}"
     )
 
-    return generate_quiz(prompt)
+    return _generate_checked(prompt)
 
 
 MAX_EXTRA_FILES = 3  # an inquiry spanning more than this is a survey, not a question
@@ -212,10 +261,11 @@ def generate_questions_from_study_seeds(
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{STUDY_SEED_PROMPT.format(n=num_questions, seed_questions=seed_block)}\n\n"
         + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
+        + f"{CHOICE_LENGTH_RULE}\n\n"
         + files_block
     )
 
-    quiz, stats = generate_quiz(prompt)
+    quiz, stats = _generate_checked(prompt)
     return quiz, stats, [s["id"] for s in seeds], list(extra)
 
 
@@ -259,6 +309,7 @@ def _quiz_to_rows(quiz: Quiz) -> list[dict]:
                 "question_text": q.question,
                 "choices": choices,
                 "expected_answer": correct_answer,
+                "length_cue": length_cue(q),
             }
         )
     return rows

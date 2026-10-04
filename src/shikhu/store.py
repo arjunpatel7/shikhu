@@ -55,6 +55,7 @@ MIGRATIONS = [
     ("questions", "presented_at", "TIMESTAMP"),
     ("questions", "model", "TEXT"),
     ("questions", "commit_sha", "TEXT"),
+    ("questions", "length_cue", "BOOLEAN DEFAULT FALSE"),
 ]
 
 # Column renames for older DBs: (table, old_name, new_name). Applied idempotently
@@ -344,8 +345,8 @@ def insert_questions(
         for q in questions:
             choices_json = json.dumps(q["choices"]) if "choices" in q else None
             cursor = conn.execute(
-                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, commit_sha, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                """INSERT INTO questions (file_id, file_path, line_start, line_end, question_text, choices, expected_answer, prompt_version, seed_query_ids, seed_query_source, model, commit_sha, length_cue, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
                 (
                     file_id,
                     file_path,
@@ -359,6 +360,7 @@ def insert_questions(
                     seed_query_source,
                     model,
                     commit_sha,
+                    bool(q.get("length_cue")),
                 ),
             )
             ids.append(cursor.lastrowid)
