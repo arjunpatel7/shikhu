@@ -43,6 +43,41 @@ _GATE = systemone.noul(
 )
 
 
+# A re-asked question that matches an existing, unanswered quiz question is re-queued instead of
+# generating a near-duplicate. Wrong either way is cheap (a duplicate, or a missed re-queue), so
+# the bar sits well above a coin flip but below a near-certain match.
+ALIGN_THRESHOLD = 0.7
+MAX_ALIGN_CANDIDATES = 40
+
+
+def match_existing(text: str, candidates: dict[int, str]) -> dict[int, float]:
+    """Probability that each existing quiz question tests the concept `text` asked about.
+
+    One independent judgment per candidate, all in one request."""
+    ids = list(candidates)[:MAX_ALIGN_CANDIDATES]
+    if not ids:
+        return {}
+    questions = {
+        f"q{i}": systemone.noul(
+            {
+                "quiz_question": str(cid),
+                "question": (
+                    "Does the quiz question `quiz_question` in `state.quiz_questions` test the "
+                    "same concept the developer asked about in `state.inquiry`?"
+                ),
+            },
+            true_means="Answering the quiz question would teach what the developer asked about.",
+            false_means="It covers a different concept, or only touches the topic in passing.",
+        )
+        for i, cid in enumerate(ids)
+    }
+    answers, _ = systemone.ask(
+        state={"inquiry": text, "quiz_questions": {str(c): candidates[c] for c in ids}},
+        questions=questions,
+    )
+    return {ids[int(k[1:])]: v["noul"] for k, v in answers.items()}
+
+
 def _threshold(name: str, default: float) -> float:
     """Env-overridable threshold, so dogfooding can retune without an edit."""
     raw = os.environ.get(name)

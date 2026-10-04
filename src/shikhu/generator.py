@@ -229,15 +229,18 @@ CROSS_FILE_RULE = (
 def generate_questions_from_study_seeds(
     file_path: str,
     num_questions: int = 3,
+    seeds: list[dict] | None = None,
 ) -> tuple[Quiz, dict, list[int], list[str]] | None:
     """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
     When the inquiries behind the seeds spanned more files (record-inquiry --also), those are
     shown too so questions can cross files. Returns (quiz, stats, seed_review_question_ids,
-    extra_files) or None if no seeds / file missing."""
+    extra_files) or None if no seeds / file missing. With `seeds` omitted it uses every seed
+    that has no fresh quiz question yet."""
     from shikhu.store import get_conceptual_study_questions_for_file
 
-    seeds = get_conceptual_study_questions_for_file(file_path)
+    if seeds is None:
+        seeds = get_conceptual_study_questions_for_file(file_path, unconsumed=True)
     if not seeds:
         return None
 
