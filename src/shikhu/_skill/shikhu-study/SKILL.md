@@ -107,7 +107,7 @@ When the user signals they're done (they say so, or the walk is complete):
 ## 7. Offer the quiz
 
 End with:
-> *"Ready to test it? Run `shikhu quiz --file $ARGUMENTS` — or come back later and I'll have remembered what we covered."*
+> *"Ready to test it? Run `shikhu generate-from-study $ARGUMENTS` to turn the questions you asked into quiz questions, then `shikhu quiz --file $ARGUMENTS` — or come back later and I'll have remembered what we covered."*
 
 Do **not** auto-launch the quiz. Quizzing is a separate intentional act.
 
