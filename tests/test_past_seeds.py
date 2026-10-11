@@ -37,7 +37,7 @@ def _run(match=None):
     """generate-from-study with the writer and Jev mocked; returns (result, seed batches)."""
     calls = []
 
-    def fake_gen(file_path, num_questions=3, seeds=None):
+    def fake_gen(file_path, num_questions=3, seeds=None, **kw):
         calls.append(seeds)
         return _quiz(), {"completion_tokens": 1, "elapsed": 0.1}, [s["id"] for s in seeds], []
 
@@ -185,3 +185,41 @@ def test_a_failed_generation_says_so_and_leaves_the_seed_unused(tmp_path, monkey
     assert result.exit_code == 1
     assert "Nothing was saved" in " ".join(result.output.split())
     assert [s["id"] for s in _seeds()] == [pid]
+
+
+def test_past_seeds_get_the_current_code_only_rule(tmp_path, monkeypatch):
+    from shikhu import generator
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.py").write_text("x = 1\n")
+    prompts = []
+    monkeypatch.setattr(
+        generator, "_generate_checked", lambda p: (prompts.append(p), (_quiz(), {}))[1]
+    )
+    seed = [{"id": 1, "question_text": "why is a cached?", "extra_files": []}]
+    generator.generate_questions_from_study_seeds("a.py", seeds=seed, past=True)
+    generator.generate_questions_from_study_seeds("a.py", seeds=seed)
+    assert generator.PAST_SEED_RULE in prompts[0]
+    assert generator.PAST_SEED_RULE not in prompts[1]
+
+
+def test_only_the_past_batch_is_flagged_past(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.py").write_text("x = 1\n")
+    rid = store.start_review("a.py")
+    store.log_study_question(rid, "how does a work?", was_conceptual=True)
+    _past("why is a cached?", {"a.py": 0.9})
+    flags = []
+
+    def fake_gen(file_path, num_questions=3, seeds=None, past=False):
+        flags.append(past)
+        return _quiz(), {"completion_tokens": 1, "elapsed": 0.1}, [s["id"] for s in seeds], []
+
+    with (
+        patch("shikhu.generator.generate_questions_from_study_seeds", fake_gen),
+        patch("shikhu.inquiry.match_existing", lambda t, c: {}),
+        patch("shikhu.commands.generate_from_study.ingest_recent"),
+    ):
+        result = runner.invoke(app, ["generate-from-study", "a.py"])
+    assert result.exit_code == 0, result.output
+    assert flags == [False, True]

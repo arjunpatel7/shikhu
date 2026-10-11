@@ -120,7 +120,9 @@ def _generate(
         return
 
     try:
-        result = generate_questions_from_study_seeds(file_path, num_questions=n, seeds=fresh)
+        result = generate_questions_from_study_seeds(
+            file_path, num_questions=n, seeds=fresh, past=source == PAST
+        )
     except RuntimeError as e:  # API errors, and an answer cut off twice
         console.print(f"[yellow]Generation failed: {e}. Nothing was saved; try again.[/yellow]")
         raise typer.Exit(code=1) from e

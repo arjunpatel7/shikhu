@@ -166,7 +166,7 @@ def _run(match=None, generated=None):
     gen = generated or (lambda *a, **k: (_quiz(), {"completion_tokens": 1, "elapsed": 0.1}, [], []))
     calls = []
 
-    def fake_gen(file_path, num_questions=3, seeds=None):
+    def fake_gen(file_path, num_questions=3, seeds=None, **kw):
         calls.append(seeds)
         return gen()
 
