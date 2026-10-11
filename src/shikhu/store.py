@@ -11,6 +11,7 @@ Sections, in file order:
     Review questions       log_study_question + readers for /shikhu-study sessions
     Attribution labels     insert/get/set helpers for prompt-to-file attribution
     Seed lookups           get_seed_texts
+    Past prompts           add/get/save/count helpers behind `shikhu map`
 
 Internal functions use the `_conn` context manager (auto-commit on success,
 rollback on exception, always closes). `_get_conn` is kept for external
@@ -207,6 +208,33 @@ def init_db():
                 file_path TEXT NOT NULL,
                 PRIMARY KEY (review_id, file_path)
             );
+
+            -- Prompts from past Claude Code transcripts, for `shikhu map`. One row per
+            -- distinct prompt; scores stay NULL until Jev has judged it. These are imported:
+            -- nobody confirmed them, so they never count as confirmed inquiries.
+            CREATE TABLE IF NOT EXISTS past_prompts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text_key TEXT NOT NULL UNIQUE,
+                prompt_text TEXT NOT NULL,
+                session_id TEXT,
+                transcript_path TEXT,
+                asked_at TIMESTAMP,
+                context TEXT,
+                conceptual REAL,
+                answerable REAL,
+                algo_version TEXT,
+                scored_at TIMESTAMP
+            );
+
+            -- Every file scored at or above the show floor for a past prompt. Raw scores,
+            -- so the map's thresholds can move without re-scoring.
+            CREATE TABLE IF NOT EXISTS past_prompt_files (
+                prompt_id INTEGER NOT NULL REFERENCES past_prompts(id),
+                file_path TEXT NOT NULL,
+                score REAL NOT NULL,
+                PRIMARY KEY (prompt_id, file_path)
+            );
+            CREATE INDEX IF NOT EXISTS idx_past_prompt_files_path ON past_prompt_files(file_path);
 
             CREATE VIEW IF NOT EXISTS question_links AS
                 SELECT id AS question_id, file_path FROM questions
@@ -1021,3 +1049,121 @@ def get_seed_texts(seed_ids: list[int], source: str) -> list[dict]:
         else:
             rows = []
     return [dict(r) for r in rows]
+
+
+# --- Past prompts ---
+
+
+def add_past_prompts(prompts) -> int:
+    """Insert past prompts not already stored (keyed on normalized text). Returns how many
+    were new. Scores on existing rows are left alone; their context is refreshed, since it
+    comes free from the transcript.
+
+    Unscored rows missing from this scan are dropped, so a stricter transcript filter takes
+    effect without paying for prompts it now rejects. Scored rows stay: they were paid for."""
+    from shikhu.transcripts import normalize
+
+    keys = {normalize(p.text) for p in prompts}
+    added = 0
+    with _conn() as conn:
+        stale = [
+            r["id"]
+            for r in conn.execute("SELECT id, text_key FROM past_prompts WHERE scored_at IS NULL")
+            if r["text_key"] not in keys
+        ]
+        conn.executemany("DELETE FROM past_prompts WHERE id = ?", [(i,) for i in stale])
+        for p in prompts:
+            key = normalize(p.text)
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO past_prompts "
+                "(text_key, prompt_text, session_id, transcript_path, asked_at, context) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (key, p.text, p.session_id, p.transcript_path, p.asked_at, p.context),
+            )
+            added += cur.rowcount
+            if not cur.rowcount:
+                conn.execute(
+                    "UPDATE past_prompts SET context = ? WHERE text_key = ?", (p.context, key)
+                )
+    return added
+
+
+def get_unscored_past_prompts(algo_version: str) -> list[dict]:
+    """Past prompts Jev hasn't judged under `algo_version` yet, oldest first. A change to how
+    prompts are scored makes every earlier score count as unscored."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, prompt_text, context FROM past_prompts "
+            "WHERE scored_at IS NULL OR algo_version IS NOT ? ORDER BY asked_at, id",
+            (algo_version,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def save_past_prompt_score(
+    prompt_id: int, conceptual: float, answerable: float, files: dict[str, float], algo_version: str
+) -> None:
+    """Store Jev's judgments for one past prompt."""
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE past_prompts SET conceptual = ?, answerable = ?, algo_version = ?, "
+            "scored_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (conceptual, answerable, algo_version, prompt_id),
+        )
+        conn.execute("DELETE FROM past_prompt_files WHERE prompt_id = ?", (prompt_id,))
+        conn.executemany(
+            "INSERT INTO past_prompt_files (prompt_id, file_path, score) VALUES (?, ?, ?)",
+            [(prompt_id, path, score) for path, score in files.items()],
+        )
+
+
+def count_past_prompts(algo_version: str) -> dict:
+    """{'total', 'scored'} past prompts stored; 'scored' means scored under `algo_version`."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN scored_at IS NOT NULL AND algo_version = ? THEN 1 ELSE 0 END) AS scored "
+            "FROM past_prompts",
+            (algo_version,),
+        ).fetchone()
+    return {"total": row["total"], "scored": row["scored"] or 0}
+
+
+def get_past_questions_per_file(
+    min_conceptual: float, min_answerable: float, min_file: float, algo_version: str
+) -> tuple[dict[str, int], dict[str, int], int]:
+    """Past questions per file: (every file credited, the file each question led with, total).
+
+    A scored prompt is a question when Jev judged it conceptual and answerable from this
+    repo. It credits every file scored at or above `min_file`, so a cross-file question
+    counts under each file it touched. The lead counts give each question only to its
+    top-scored file: a broad "how does it all fit together" touches many files without
+    being about any one of them."""
+    sql = """
+        WITH credited AS (
+            SELECT pf.prompt_id, pf.file_path,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY pf.prompt_id ORDER BY pf.score DESC, pf.file_path
+                   ) AS rank
+            FROM past_prompt_files pf JOIN past_prompts p ON p.id = pf.prompt_id
+            WHERE p.algo_version = :algo AND p.conceptual >= :c AND p.answerable >= :a
+              AND pf.score >= :f
+        )
+    """
+    params = {"algo": algo_version, "c": min_conceptual, "a": min_answerable, "f": min_file}
+    with _conn() as conn:
+        per_file = conn.execute(
+            sql + "SELECT file_path, COUNT(*) AS n FROM credited GROUP BY file_path", params
+        ).fetchall()
+        lead = conn.execute(
+            sql + "SELECT file_path, COUNT(*) AS n FROM credited WHERE rank = 1 GROUP BY file_path",
+            params,
+        ).fetchall()
+        total = conn.execute(
+            sql + "SELECT COUNT(DISTINCT prompt_id) FROM credited", params
+        ).fetchone()[0]
+    return (
+        {r["file_path"]: r["n"] for r in per_file},
+        {r["file_path"]: r["n"] for r in lead},
+        total,
+    )

@@ -133,8 +133,14 @@ def rank_files(text: str, summaries: dict[str, str]) -> tuple[list[tuple[str, fl
     return ranked, _merge_stats(parts)
 
 
-def _rank_batch(text: str, summaries: dict[str, str]) -> tuple[dict[str, float], dict]:
-    """Score one request's worth of files. All judgments ride a single request."""
+def _rank_batch(
+    text: str, summaries: dict[str, str], extra: dict | None = None, context: str | None = None
+) -> tuple[dict[str, float], dict]:
+    """Score one request's worth of files. All judgments ride a single request.
+
+    `extra` adds more questions about the same state to that request; their answers come
+    back in stats["extra"], keyed by the names given. `context`, the assistant message the
+    question followed, joins the state so references like "that function" resolve."""
     paths = list(summaries)
     questions = {
         f"f{i}": systemone.noul(
@@ -153,7 +159,62 @@ def _rank_batch(text: str, summaries: dict[str, str]) -> tuple[dict[str, float],
         )
         for i, path in enumerate(paths)
     }
-    answers, stats = systemone.ask(
-        state={"question": text, "files": summaries}, questions=questions
-    )
-    return {paths[int(k[1:])]: v["noul"] for k, v in answers.items()}, stats
+    state = {"question": text, "files": summaries}
+    if context:
+        state["preceding_assistant_message"] = context
+    answers, stats = systemone.ask(state=state, questions={**questions, **(extra or {})})
+    stats["extra"] = {k: answers[k]["noul"] for k in extra or {}}
+    return {paths[int(k[1:])]: answers[k]["noul"] for k in questions}, stats
+
+
+# --- Past prompts (`shikhu map`) ---
+#
+# A live inquiry is already known to be a question: the skill fired on it, or the user ran
+# /shikhu-inquiry. A past prompt is not, so it also needs the detection judgment the hook
+# used to make. Wording follows the narrow definition settled in the Jev benchmark:
+# tooling, process and product questions are out, even when genuinely curious.
+_CONCEPTUAL = systemone.noul(
+    "The developer said `state.question` to their AI coding assistant while working in this "
+    "repository, right after the assistant said `state.preceding_assistant_message` (when "
+    "present), which is what words like 'that' or 'this' refer to. Is it asking to "
+    "understand how or why the code works?",
+    true_means=(
+        "Asks for an explanation, reasoning, mechanism, design rationale, tradeoff, or "
+        "architecture — a turn whose answer would teach the developer something about "
+        "their own code. Phrasing may be casual or elliptical."
+    ),
+    false_means=(
+        "Instructs the assistant to do something (write, fix, run, commit, refactor), "
+        "acknowledges or reacts to a previous turn, reports a bug without asking why, "
+        "or asks about scheduling, tooling or process rather than the code itself."
+    ),
+)
+
+
+def score_past_prompt(
+    text: str, summaries: dict[str, str], context: str | None = None
+) -> tuple[dict, dict]:
+    """Detection, presence gate and per-file salience for one past prompt.
+
+    All three ride the same request per batch, since they share the state. Returns
+    ({"conceptual", "answerable", "files"}, stats); "files" holds every score at or above
+    SHOW_FLOOR, so thresholds can be retuned later without paying again."""
+    scored, parts, conceptual, gate = {}, [], [], []
+    for batch in _batches(summaries, BATCH_FILES):
+        if not batch:
+            continue
+        batch_scored, stats = _rank_batch(
+            text, batch, extra={"conceptual": _CONCEPTUAL, "gate": _GATE}, context=context
+        )
+        scored.update(batch_scored)
+        conceptual.append(stats["extra"]["conceptual"])
+        gate.append(stats["extra"]["gate"])
+        parts.append(stats)
+    files = {p: s for p, s in scored.items() if s >= SHOW_FLOOR}
+    # Max across batches, as in answerable(): one batch holding the answer is enough.
+    result = {
+        "conceptual": max(conceptual, default=0.0),
+        "answerable": max(gate, default=0.0),
+        "files": files,
+    }
+    return result, _merge_stats(parts)

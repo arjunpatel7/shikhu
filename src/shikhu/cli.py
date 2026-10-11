@@ -10,6 +10,7 @@ from shikhu.commands.generate_from_study import generate_from_study
 from shikhu.commands.init import init
 from shikhu.commands.inquiry import inquiry_packet, record_inquiry
 from shikhu.commands.install_skill import install_skill
+from shikhu.commands.map import map_
 from shikhu.commands.quiz import quiz
 from shikhu.commands.refresh import refresh
 from shikhu.commands.review_log import log_review, log_study_question
@@ -38,6 +39,7 @@ app.command()(init)
 app.command("install-skill")(install_skill)
 app.command()(quiz)
 app.command()(coverage)
+app.command("map")(map_)
 app.command()(clean)
 app.command()(refresh)
 app.command()(summarize)
