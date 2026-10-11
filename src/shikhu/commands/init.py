@@ -54,7 +54,8 @@ def init(
 
     console.print()
     console.print(
-        "[bold green]Ready.[/bold green] Run [bold]shikhu refresh[/bold] to generate questions, then [bold]shikhu quiz[/bold] to start."
+        "[bold green]Ready.[/bold green] Run [bold]shikhu summarize[/bold] to index your code, then "
+        "[bold]shikhu map[/bold] to see where your questions have been."
     )
     console.print()
 

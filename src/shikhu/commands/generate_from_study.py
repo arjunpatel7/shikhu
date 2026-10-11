@@ -79,7 +79,7 @@ def _generate(
     source: str,
     seeds: list[dict],
     n: int,
-    content_hash: str,
+    content_hash: str | None,
     open_questions: dict[int, str],
 ) -> None:
     """Re-queue the seeds that match an open question, then generate from the rest."""
