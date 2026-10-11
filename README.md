@@ -85,11 +85,13 @@ Not asked about yet (13 files, largest first — worth a look later)
 
 Start here: src/app/store.py
   3 of your questions were mainly about it, it has 0/3 golden, and it's 88 lines. Ask about it with /shikhu-inquiry.
+  Or quiz on what you already asked: shikhu generate-from-study src/app/store.py, then shikhu quiz --file src/app/store.py.
 ```
 
 *(Illustrative output; your file names and counts will differ.)* A few things to know:
 - **Scoring is the one paid step.** Each past prompt goes to Jev, a fast judgment model, through OpenRouter on your key. The map shows the estimate and asks first; `--dry-run` stops before sending anything. The first run scores your whole history, and later runs only score new prompts.
 - **"Start here" is meant to be easy.** It picks the shortest file you've asked about a lot that isn't covered yet. The files you've never asked about are probably the hardest ones, so they're listed for later rather than suggested first.
+- **What you already asked can become a quiz.** The questions the map found count as seeds for `shikhu generate-from-study`, just like ones you ask through `/shikhu-inquiry` (step 6), so you can skip straight to a quiz on them.
 - **It only reads Claude Code sessions** run from this directory. If you use another agent, `shikhu coverage` shows your starting point instead.
 
 ### 5. Ask a question about your code
@@ -131,10 +133,6 @@ shikhu coverage
 ```
 
 *(Illustrative output.)* A file counts as fully covered once it has **3 golden questions**. Until then it shows as *in progress*, and its `n/3 golden` count in the study queue ticks up with each golden. The headline number moves one file at a time, so it's a slow, honest climb.
-
-## Coming next
-
-The questions `shikhu map` finds will seed quizzes too, the same way questions you ask through `/shikhu-inquiry` do, so what you've already been asking about gets reinforced.
 
 ## Other ways in
 
@@ -191,7 +189,7 @@ shikhu coverage --since main --check   # exit 1 if a changed file has no fresh g
 | `shikhu coverage --since main --check [--min N]` | Report changed files; exit 1 if any has fewer than N fresh goldens (default 1) |
 | `shikhu summarize` | Parallel model-written summaries for every tracked file (`--workers`, `--extensions`) |
 | `shikhu summarize --file path.py` | Force-regenerate the summary for one file |
-| `shikhu generate-from-study path.py` | Generate quiz questions (`--n`, default 3) seeded by the questions you asked about that file |
+| `shikhu generate-from-study path.py` | Generate quiz questions (`--n`, default 3) seeded by the questions you asked about that file, including past ones `shikhu map` found |
 | `shikhu quiz` | Take a quiz (default 5 questions) |
 | `shikhu quiz --n 10` | Quiz with 10 questions |
 | `shikhu quiz --file path.py` | Quiz on a single file |

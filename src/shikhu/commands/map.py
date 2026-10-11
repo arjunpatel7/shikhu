@@ -25,30 +25,18 @@ from shikhu.commands.utils import (
     get_trackable_files,
 )
 from shikhu.ingest import _project_transcripts_dir
-from shikhu.inquiry import (
-    ALGO_VERSION,
-    GATE_THRESHOLD,
-    STRONG,
-    _threshold,
-    score_past_prompt,
-)
+from shikhu.inquiry import MAP_ALGO_VERSION, past_question_bar, score_past_prompt
 from shikhu.store import (
     add_past_prompts,
     count_past_prompts,
     get_golden_counts,
+    get_past_question_seeds,
     get_past_questions_per_file,
     get_unscored_past_prompts,
     init_db,
     save_past_prompt_score,
 )
 from shikhu.transcripts import scan
-
-# Thresholds the map applies to stored scores. Detection uses the 0.5 the Jev benchmark
-# measured; a first run at 0.7 dropped real questions scoring 0.66-0.69.
-MAP_CONCEPTUAL = 0.5
-
-# Bump when scoring changes (wording, state), so earlier scores count as unscored.
-MAP_ALGO_VERSION = f"map-v2/{ALGO_VERSION}"
 
 # Files shorter than this hold no concept to ask about, yet a package __init__ whose summary
 # describes the whole package soaks up broad questions. They are left off the map.
@@ -148,12 +136,7 @@ def _start_here(lead: dict[str, int], golden: dict[str, int]) -> str | None:
 
 
 def _draw(tracked: list[str], prompt_counts: dict) -> None:
-    per_file, lead, total = get_past_questions_per_file(
-        _threshold("SHIKHU_MAP_CONCEPTUAL", MAP_CONCEPTUAL),
-        _threshold("SHIKHU_GATE_THRESHOLD", GATE_THRESHOLD),
-        _threshold("SHIKHU_MAP_FILE", STRONG),
-        MAP_ALGO_VERSION,
-    )
+    per_file, lead, total = get_past_questions_per_file(**past_question_bar())
     tracked_set = set(tracked)
     per_file = {f: n for f, n in per_file.items() if f in tracked_set}
     lead = {f: n for f, n in lead.items() if f in tracked_set}
@@ -208,6 +191,12 @@ def _draw(tracked: list[str], prompt_counts: dict) -> None:
             f"{g}/{COVERED_THRESHOLD} golden, and it's {_line_count(pick)} lines. "
             "Ask about it with [bold]/shikhu-inquiry[/bold]."
         )
+        if get_past_question_seeds(pick, **past_question_bar()):
+            console.print(
+                "  Or quiz on what you already asked: "
+                f"[bold]shikhu generate-from-study {pick}[/bold], then "
+                f"[bold]shikhu quiz --file {pick}[/bold]."
+            )
     console.print()
 
 

@@ -191,6 +191,26 @@ _CONCEPTUAL = systemone.noul(
 )
 
 
+# Thresholds applied to stored past-prompt scores, by `shikhu map` and by generate-from-study
+# when it seeds from past questions. Detection uses the 0.5 the Jev benchmark measured; a first
+# run at 0.7 dropped real questions scoring 0.66-0.69.
+MAP_CONCEPTUAL = 0.5
+
+# Bump when past-prompt scoring changes (wording, state), so earlier scores count as unscored.
+MAP_ALGO_VERSION = f"map-v2/{ALGO_VERSION}"
+
+
+def past_question_bar() -> dict:
+    """What a scored past prompt must clear to count as a question about this codebase, and
+    which files it lands on. Env-overridable, like the live thresholds."""
+    return {
+        "min_conceptual": _threshold("SHIKHU_MAP_CONCEPTUAL", MAP_CONCEPTUAL),
+        "min_answerable": _threshold("SHIKHU_GATE_THRESHOLD", GATE_THRESHOLD),
+        "min_file": _threshold("SHIKHU_MAP_FILE", STRONG),
+        "algo_version": MAP_ALGO_VERSION,
+    }
+
+
 def score_past_prompt(
     text: str, summaries: dict[str, str], context: str | None = None
 ) -> tuple[dict, dict]:

@@ -58,6 +58,7 @@ MIGRATIONS = [
     ("questions", "commit_sha", "TEXT"),
     ("questions", "reasked_at", "TIMESTAMP"),
     ("questions", "length_cue", "BOOLEAN DEFAULT FALSE"),
+    ("past_prompts", "quiz_question_id", "INTEGER REFERENCES questions(id)"),
 ]
 
 # Column renames for older DBs: (table, old_name, new_name). Applied idempotently
@@ -223,7 +224,10 @@ def init_db():
                 conceptual REAL,
                 answerable REAL,
                 algo_version TEXT,
-                scored_at TIMESTAMP
+                scored_at TIMESTAMP,
+                -- The quiz question this past question seeded or was matched to. Past
+                -- questions are used once, like inquiry seeds; a stale question frees it.
+                quiz_question_id INTEGER REFERENCES questions(id)
             );
 
             -- Every file scored at or above the show floor for a past prompt. Raw scores,
@@ -956,29 +960,38 @@ def get_requeueable_questions(file_path: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def requeue_question(question_id: int, seed_ids: list[int]) -> None:
+def requeue_question(
+    question_id: int,
+    seed_ids: list[int],
+    source: str = "review_questions",
+    asked_at: str | None = None,
+) -> None:
     """Record that the user asked about this question's concept again.
 
-    The new inquiry joins the question's seeds, so it counts as consumed, and `reasked_at` moves
-    the question into the recent-seed window so quizzes favor it. Asking again is not credit: it
-    earns nothing until the question is answered."""
+    A new inquiry joins the question's seeds when they come from the same table, so it counts
+    as consumed; seeds from different tables are never mixed. `reasked_at` moves the question
+    into the recent-seed window so quizzes favor it. It is when the question was asked: now
+    for a live inquiry, the transcript time for a past one, so an old question doesn't jump
+    the queue. Asking again is not credit: it earns nothing until the question is answered."""
     with _conn() as conn:
         row = conn.execute(
             "SELECT seed_query_ids, seed_query_source FROM questions WHERE id = ?", (question_id,)
         ).fetchone()
         if row is None:
             return
-        seeds = json.loads(row["seed_query_ids"]) if row["seed_query_ids"] else []
-        if row["seed_query_source"] in (None, "review_questions"):
-            seeds = sorted({*seeds, *seed_ids})
+        when = "COALESCE(datetime(?), CURRENT_TIMESTAMP)"
+        # Never move reasked_at backwards: an older past question can't undo a newer re-ask.
+        reasked = f"MAX(COALESCE(reasked_at, ''), {when})"
+        if row["seed_query_source"] in (None, source):
+            seeds = json.loads(row["seed_query_ids"]) if row["seed_query_ids"] else []
             conn.execute(
-                "UPDATE questions SET seed_query_ids = ?, seed_query_source = 'review_questions', "
-                "reasked_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (json.dumps(seeds), question_id),
+                f"UPDATE questions SET seed_query_ids = ?, seed_query_source = ?, "
+                f"reasked_at = {reasked} WHERE id = ?",
+                (json.dumps(sorted({*seeds, *seed_ids})), source, asked_at, question_id),
             )
         else:  # seeded from something else: still favor it, just don't mix seed sources
             conn.execute(
-                "UPDATE questions SET reasked_at = CURRENT_TIMESTAMP WHERE id = ?", (question_id,)
+                f"UPDATE questions SET reasked_at = {reasked} WHERE id = ?", (asked_at, question_id)
             )
 
 
@@ -1039,6 +1052,11 @@ def get_seed_texts(seed_ids: list[int], source: str) -> list[dict]:
         if source == "review_questions":
             rows = conn.execute(
                 f"SELECT id, question_text AS text FROM review_questions WHERE id IN ({placeholders}) ORDER BY id DESC",
+                seed_ids,
+            ).fetchall()
+        elif source == "past_prompts":
+            rows = conn.execute(
+                f"SELECT id, prompt_text AS text FROM past_prompts WHERE id IN ({placeholders}) ORDER BY id DESC",
                 seed_ids,
             ).fetchall()
         elif source == "raw_prompts":
@@ -1167,3 +1185,72 @@ def get_past_questions_per_file(
         {r["file_path"]: r["n"] for r in lead},
         total,
     )
+
+
+def get_past_question_seeds(
+    file_path: str,
+    min_conceptual: float,
+    min_answerable: float,
+    min_file: float,
+    algo_version: str,
+    unconsumed: bool = True,
+) -> list[dict]:
+    """Past questions this file led with, oldest first, shaped like inquiry seeds.
+
+    Only the lead file seeds from a past question, so a broad question doesn't seed every file
+    it touched; the other files it scored on come along as `extra_files` for cross-file
+    questions. unconsumed=True drops ones already behind a fresh quiz question."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            WITH credited AS (
+                SELECT pf.prompt_id, pf.file_path, pf.score,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY pf.prompt_id ORDER BY pf.score DESC, pf.file_path
+                       ) AS rank
+                FROM past_prompt_files pf JOIN past_prompts p ON p.id = pf.prompt_id
+                WHERE p.algo_version = :algo AND p.conceptual >= :c AND p.answerable >= :a
+                  AND pf.score >= :f
+            )
+            SELECT p.id, p.prompt_text AS question_text, p.asked_at, p.quiz_question_id,
+                   (SELECT q.stale FROM questions q WHERE q.id = p.quiz_question_id) AS used_stale
+            FROM credited c JOIN past_prompts p ON p.id = c.prompt_id
+            WHERE c.file_path = :path AND c.rank = 1
+            ORDER BY p.asked_at, p.id
+            """,
+            {
+                "algo": algo_version,
+                "c": min_conceptual,
+                "a": min_answerable,
+                "f": min_file,
+                "path": file_path,
+            },
+        ).fetchall()
+        seeds = []
+        for r in rows:
+            # A stale question was about code that has since changed, so its seed is free again.
+            if unconsumed and r["quiz_question_id"] is not None and not r["used_stale"]:
+                continue
+            extra = conn.execute(
+                "SELECT file_path FROM past_prompt_files WHERE prompt_id = ? AND file_path != ? "
+                "AND score >= ? ORDER BY score DESC, file_path",
+                (r["id"], file_path, min_file),
+            ).fetchall()
+            seeds.append(
+                {
+                    "id": r["id"],
+                    "question_text": r["question_text"],
+                    "asked_at": r["asked_at"],
+                    "extra_files": [e["file_path"] for e in extra],
+                }
+            )
+    return seeds
+
+
+def mark_past_prompts_used(prompt_ids: list[int], question_id: int) -> None:
+    """Record the quiz question these past questions seeded or were matched to."""
+    with _conn() as conn:
+        conn.executemany(
+            "UPDATE past_prompts SET quiz_question_id = ? WHERE id = ?",
+            [(question_id, pid) for pid in prompt_ids],
+        )
