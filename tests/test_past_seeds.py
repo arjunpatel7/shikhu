@@ -6,7 +6,7 @@ from conftest import runner
 
 import shikhu.store as store
 from shikhu.cli import app
-from shikhu.generator import MCQuestion, Quiz
+from shikhu.generator import MCQuestion, Quiz, TruncatedResponse
 from shikhu.inquiry import MAP_ALGO_VERSION, past_question_bar
 from shikhu.transcripts import PastPrompt
 
@@ -167,3 +167,21 @@ def test_no_seeds_from_any_source_points_at_all_three_ways_in(tmp_path, monkeypa
     result, calls = _run()
     assert result.exit_code == 1
     assert "shikhu map" in " ".join(result.output.split())  # Rich wraps at 80 columns
+
+
+def test_a_failed_generation_says_so_and_leaves_the_seed_unused(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.py").write_text("x = 1\n")
+    pid = _past("why is a cached?", {"a.py": 0.9})
+
+    def cut_off(*a, **k):
+        raise TruncatedResponse("Model response was truncated (hit max_tokens)")
+
+    with (
+        patch("shikhu.generator.generate_questions_from_study_seeds", cut_off),
+        patch("shikhu.commands.generate_from_study.ingest_recent"),
+    ):
+        result = runner.invoke(app, ["generate-from-study", "a.py"])
+    assert result.exit_code == 1
+    assert "Nothing was saved" in " ".join(result.output.split())
+    assert [s["id"] for s in _seeds()] == [pid]

@@ -119,7 +119,11 @@ def _generate(
     if not fresh:
         return
 
-    result = generate_questions_from_study_seeds(file_path, num_questions=n, seeds=fresh)
+    try:
+        result = generate_questions_from_study_seeds(file_path, num_questions=n, seeds=fresh)
+    except RuntimeError as e:  # API errors, and an answer cut off twice
+        console.print(f"[yellow]Generation failed: {e}. Nothing was saved; try again.[/yellow]")
+        raise typer.Exit(code=1) from e
     if result is None:
         console.print(f"[yellow]{file_path} is missing; nothing generated.[/yellow]")
         raise typer.Exit(code=1)

@@ -30,6 +30,10 @@ REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole 
 # now live in `openrouter`, since `systemone` needs the same three things.
 
 
+class TruncatedResponse(RuntimeError):
+    """The model ran out of output tokens mid-answer, so the JSON is incomplete."""
+
+
 def get_model() -> str:
     """Model id sent to OpenRouter. Read per call so .env and test overrides apply."""
     return os.environ.get("SHIKHU_MODEL") or DEFAULT_MODEL
@@ -42,7 +46,7 @@ def _check_response(response: requests.Response) -> dict:
     if choice.get("error"):
         raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:ERROR_SNIPPET]}")
     if choice.get("finish_reason") == "length":
-        raise RuntimeError("Model response was truncated (hit max_tokens)")
+        raise TruncatedResponse("Model response was truncated (hit max_tokens)")
     return data
 
 
@@ -132,13 +136,22 @@ RESPONSE_SCHEMA = {
 
 # request wrapper
 def generate_quiz(prompt: str, max_tokens: int = 2000) -> tuple[Quiz, dict]:
-    """Send a prompt with structured output, return parsed Quiz and usage stats."""
-    content, stats = _chat(
-        prompt,
-        max_tokens,
-        response_format={"type": "json_schema", "json_schema": RESPONSE_SCHEMA},
-    )
-    return Quiz.model_validate_json(content), stats
+    """Send a prompt with structured output, return parsed Quiz and usage stats.
+
+    Retried once if the answer is cut off: 2000 tokens is several times what three questions
+    need, so a cut-off answer is a model ramble, and a fresh sample usually lands."""
+    for attempt in range(2):
+        try:
+            content, stats = _chat(
+                prompt,
+                max_tokens,
+                response_format={"type": "json_schema", "json_schema": RESPONSE_SCHEMA},
+            )
+            return Quiz.model_validate_json(content), stats
+        except TruncatedResponse:
+            if attempt:
+                raise
+    raise AssertionError("unreachable")
 
 
 # A multiple-choice question whose key is the longest option can be answered by picking the most

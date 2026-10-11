@@ -156,9 +156,20 @@ def test_http_error_is_readable():
 
 def test_truncated_response_is_reported():
     """finish_reason=length raises a clear error instead of a JSON validation failure."""
-    with patch("shikhu.generator.requests.post", return_value=_response(finish_reason="length")):
+    with patch(
+        "shikhu.generator.requests.post", return_value=_response(finish_reason="length")
+    ) as post:
         with pytest.raises(RuntimeError, match="truncated"):
             generator.generate_quiz("prompt")
+    assert post.call_count == 2  # retried once first
+
+
+def test_a_truncated_response_is_retried_once():
+    cut, ok = _response(finish_reason="length"), _response()
+    with patch("shikhu.generator.requests.post", side_effect=[cut, ok]) as post:
+        quiz, _ = generator.generate_quiz("prompt")
+    assert post.call_count == 2
+    assert len(quiz.questions) == 1
 
 
 def test_error_inside_200_is_reported():
