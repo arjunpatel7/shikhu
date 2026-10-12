@@ -47,39 +47,56 @@ Skills go into `.claude/skills/` (Claude Code) and/or `.agents/skills/` (Codex, 
 - `shikhu install-skill`: install them later, or re-install after upgrading Shikhu so the skills match the CLI.
 - `shikhu install-skill --global`: install into your home directory so they're available in every project.
 
-### 3. See where you start
-
-```bash
-shikhu coverage
-```
-
-This is free and needs no API calls. Expect it to be at or near zero:
-
-```
-╭──────────────────────── Knowledge Coverage ────────────────────────╮
-│ 0/50 files fully covered  |  0 in progress  |  50 not started      │
-╰────────────────────────── 0% complete ─────────────────────────────╯
-
-╭─────────────────────────── Study these next ───────────────────────╮
-│   1. src/app/auth.py  (0/3 golden)                                 │
-│   2. src/app/cache.py  (0/3 golden)                                │
-│   3. src/app/store.py  (0/3 golden)                                │
-╰────────────────────────────────────────────────────────────────────╯
-```
-
-*(Illustrative output; your file names and counts will differ.)* The study queue lists your least-covered files first.
-
-### 4. Let Shikhu index your code
+### 3. Let Shikhu index your code
 
 ```bash
 shikhu summarize
 ```
 
-This writes a cached, model-written summary for each tracked file. The skills use those summaries to work out which files answer a question. It makes one model call per file, and it only re-runs for files whose contents changed.
+This writes a cached, model-written summary for each tracked file. The skills and `shikhu map` use those summaries to work out which files a question is about. It makes one model call per file, and it only re-runs for files whose contents changed.
+
+### 4. See where your questions have been
+
+```bash
+shikhu map
+```
+
+If you've been using Claude Code in this repo, you've probably already asked it plenty about your code. `shikhu map` reads those past sessions, picks out the questions you asked about this codebase, and shows which files they were about next to your coverage:
+
+```
+Read 65 transcripts: 255 distinct past prompts, 255 new since the last map.
+255 prompt(s) to score. Each is sent with your 25 file summaries to Jev through OpenRouter: about $0.11 on your key.
+Score them now? [y/N]: y
+> Scored 255 prompt(s) for $0.0877.
+
+Your question map
+  11 past questions about this codebase (from 255 past prompts)
+  Coverage: 0/25 files fully covered (0%)
+
+Asked about most
+  file                   questions  golden
+  src/app/store.py               4     0/3
+  src/app/cli.py                 3     0/3
+  src/app/generator.py           2     0/3
+
+Not asked about yet (13 files, largest first — worth a look later)
+  src/app/staleness.py  (166 lines)
+  src/app/systemone.py  (149 lines)
+
+Start here: src/app/store.py
+  3 of your questions were mainly about it, it has 0/3 golden, and it's 88 lines. Ask about it with /shikhu-inquiry.
+  Or quiz on what you already asked: shikhu generate-from-study src/app/store.py, then shikhu quiz --file src/app/store.py.
+```
+
+*(Illustrative output; your file names and counts will differ.)* A few things to know:
+- **Scoring is the one paid step.** Each past prompt goes to Jev, a fast judgment model, through OpenRouter on your key. The map shows the estimate and asks first; `--dry-run` stops before sending anything. The first run scores your whole history, and later runs only score new prompts.
+- **"Start here" is meant to be easy.** It picks the shortest file you've asked about a lot that isn't covered yet. The files you've never asked about are probably the hardest ones, so they're listed for later rather than suggested first.
+- **What you already asked can become a quiz.** The questions the map found count as seeds for `shikhu generate-from-study`, just like ones you ask through `/shikhu-inquiry` (step 6), so you can skip straight to a quiz on them.
+- **It only reads Claude Code sessions** run from this directory. If you use another agent, `shikhu coverage` shows your starting point instead.
 
 ### 5. Ask a question about your code
 
-In your agent, just ask, or invoke the skill explicitly:
+Start with the file the map picked. In your agent, just ask, or invoke the skill explicitly:
 
 ```
 /shikhu-inquiry how are we storing quizzes?
@@ -111,15 +128,11 @@ shikhu coverage
 
 ```
 ╭──────────────────────── Knowledge Coverage ────────────────────────╮
-│ 1/50 files fully covered  |  0 in progress  |  49 not started      │
-╰────────────────────────── 2% complete ─────────────────────────────╯
+│ 1/25 files fully covered  |  0 in progress  |  24 not started      │
+╰────────────────────────── 4% complete ─────────────────────────────╯
 ```
 
 *(Illustrative output.)* A file counts as fully covered once it has **3 golden questions**. Until then it shows as *in progress*, and its `n/3 golden` count in the study queue ticks up with each golden. The headline number moves one file at a time, so it's a slow, honest climb.
-
-## Coming next: bulk import
-
-Starting from zero is a fine place to begin, but it isn't where your understanding actually is. We're building a way to import your **old agent transcripts** so you can see an estimate of your coverage right away, as a distribution across your files, and then keep going with questions and practice from there. This isn't built yet. Today, coverage starts at zero and grows as you ask and quiz.
 
 ## Other ways in
 
@@ -172,10 +185,11 @@ shikhu coverage --since main --check   # exit 1 if a changed file has no fresh g
 | `shikhu init` | Set up the database, check API keys, create `.quizignore`, install both skills (`--no-skill` to skip) |
 | `shikhu install-skill` | Install the `/shikhu-inquiry` and `/shikhu-study` skills (`--global` for all projects) |
 | `shikhu coverage` | Print the knowledge-coverage report and a study queue (`--queue N` sets its length, `0` hides it) |
+| `shikhu map` | Show where your past Claude Code questions have been, next to coverage, and pick a file to start on. Scores new past prompts with Jev after showing the cost (`--dry-run` to only estimate, `--yes` to skip the prompt) |
 | `shikhu coverage --since main --check [--min N]` | Report changed files; exit 1 if any has fewer than N fresh goldens (default 1) |
 | `shikhu summarize` | Parallel model-written summaries for every tracked file (`--workers`, `--extensions`) |
 | `shikhu summarize --file path.py` | Force-regenerate the summary for one file |
-| `shikhu generate-from-study path.py` | Generate quiz questions (`--n`, default 3) seeded by the questions you asked about that file |
+| `shikhu generate-from-study path.py` | Generate quiz questions (`--n`, default 3) seeded by the questions you asked about that file, including past ones `shikhu map` found |
 | `shikhu quiz` | Take a quiz (default 5 questions) |
 | `shikhu quiz --n 10` | Quiz with 10 questions |
 | `shikhu quiz --file path.py` | Quiz on a single file |
@@ -196,11 +210,12 @@ The skills call a few more commands behind the scenes. You normally won't run th
 
 ## Privacy & Data
 
-Everything Shikhu knows lives in one local SQLite file, `coverage.db`, in the repo you run it from. Nothing is uploaded anywhere. Three things are worth knowing:
+Everything Shikhu knows lives in one local SQLite file, `coverage.db`, in the repo you run it from. Nothing is uploaded anywhere. Four things are worth knowing:
 
-- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 2.5), to generate questions and summaries — that's the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
+- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 2.5), to generate questions and summaries — that, plus the past prompts `shikhu map` scores (below), is the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
 - **Requests identify shikhu to OpenRouter** by name and repo URL ([app attribution](https://openrouter.ai/docs/app-attribution)), which is what lists shikhu on OpenRouter's public app rankings. Only the app name and URL are sent; nothing about you, your key, or your code.
-- **Shikhu reads your local Claude Code transcripts** for the current project (`~/.claude/projects/...`) to find conceptual questions you've asked, and stores them in `coverage.db` to seed better quiz questions. These prompts never leave your machine — but it's one more reason `coverage.db` must stay out of git. `shikhu init` adds it to your `.gitignore` automatically.
+- **Shikhu reads your local Claude Code transcripts** for the current project (`~/.claude/projects/...`) to find conceptual questions you've asked, and stores them in `coverage.db` to seed better quiz questions. Apart from `shikhu map` (below), these prompts never leave your machine — but it's one more reason `coverage.db` must stay out of git. `shikhu init` adds it to your `.gitignore` automatically.
+- **`shikhu map` sends your past prompts to OpenRouter** for Jev to score: each prompt, the end of the assistant reply it followed, and your file summaries. It shows the cost and asks before sending anything, and `--dry-run` sends nothing.
 
 ## Configuration
 
@@ -220,6 +235,7 @@ deprecated/
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API for question and summary generation |
+| `SHIKHU_JEV_BUDGET_USD` | No | Spending cap for Jev calls per command run (default `1.00`). `shikhu map` stops at the cap, keeps what it scored, and picks up where it left off next run. |
 | `SHIKHU_MODEL` | No | **Experimental, unsupported.** Override the OpenRouter model id (default `inception/mercury-2.5`). The model must support structured outputs; reasoning models may fail with truncated responses. |
 
 ## Tech

@@ -30,6 +30,10 @@ REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole 
 # now live in `openrouter`, since `systemone` needs the same three things.
 
 
+class TruncatedResponse(RuntimeError):
+    """The model ran out of output tokens mid-answer, so the JSON is incomplete."""
+
+
 def get_model() -> str:
     """Model id sent to OpenRouter. Read per call so .env and test overrides apply."""
     return os.environ.get("SHIKHU_MODEL") or DEFAULT_MODEL
@@ -42,7 +46,7 @@ def _check_response(response: requests.Response) -> dict:
     if choice.get("error"):
         raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:ERROR_SNIPPET]}")
     if choice.get("finish_reason") == "length":
-        raise RuntimeError("Model response was truncated (hit max_tokens)")
+        raise TruncatedResponse("Model response was truncated (hit max_tokens)")
     return data
 
 
@@ -132,13 +136,22 @@ RESPONSE_SCHEMA = {
 
 # request wrapper
 def generate_quiz(prompt: str, max_tokens: int = 2000) -> tuple[Quiz, dict]:
-    """Send a prompt with structured output, return parsed Quiz and usage stats."""
-    content, stats = _chat(
-        prompt,
-        max_tokens,
-        response_format={"type": "json_schema", "json_schema": RESPONSE_SCHEMA},
-    )
-    return Quiz.model_validate_json(content), stats
+    """Send a prompt with structured output, return parsed Quiz and usage stats.
+
+    Retried once if the answer is cut off: 2000 tokens is several times what three questions
+    need, so a cut-off answer is a model ramble, and a fresh sample usually lands."""
+    for attempt in range(2):
+        try:
+            content, stats = _chat(
+                prompt,
+                max_tokens,
+                response_format={"type": "json_schema", "json_schema": RESPONSE_SCHEMA},
+            )
+            return Quiz.model_validate_json(content), stats
+        except TruncatedResponse:
+            if attempt:
+                raise
+    raise AssertionError("unreachable")
 
 
 # A multiple-choice question whose key is the longest option can be answered by picking the most
@@ -225,18 +238,33 @@ CROSS_FILE_RULE = (
     "they work together, write the question so it needs facts from more than one of them."
 )
 
+# Past questions (from `shikhu map`) were asked about whatever the code was at the time, which
+# may be weeks and many edits ago. They say what the developer wanted to understand, not what
+# the code does now, so the quiz must come from the current code alone.
+PAST_SEED_RULE = (
+    "These questions come from the developer's earlier sessions, and the code may have changed a "
+    "lot since they were asked. Use them only as a guide to the kinds of things the developer "
+    "has wanted to understand. Base every question and every answer strictly on the code shown "
+    "below, never on what a question assumes. If a question's subject no longer appears in this "
+    "code, skip it."
+)
+
 
 def generate_questions_from_study_seeds(
     file_path: str,
     num_questions: int = 3,
     seeds: list[dict] | None = None,
+    past: bool = False,
 ) -> tuple[Quiz, dict, list[int], list[str]] | None:
     """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
     When the inquiries behind the seeds spanned more files (record-inquiry --also), those are
     shown too so questions can cross files. Returns (quiz, stats, seed_review_question_ids,
     extra_files) or None if no seeds / file missing. With `seeds` omitted it uses every seed
-    that has no fresh quiz question yet."""
+    that has no fresh quiz question yet.
+
+    Pass past=True for seeds that are past questions from `shikhu map`: they may describe code
+    that has since changed, so the prompt treats them as a guide to topics only."""
     from shikhu.store import get_conceptual_study_questions_for_file
 
     if seeds is None:
@@ -263,6 +291,7 @@ def generate_questions_from_study_seeds(
     prompt = (
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{STUDY_SEED_PROMPT.format(n=num_questions, seed_questions=seed_block)}\n\n"
+        + (f"{PAST_SEED_RULE}\n\n" if past else "")
         + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
         + f"{CHOICE_LENGTH_RULE}\n\n"
         + files_block
