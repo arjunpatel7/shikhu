@@ -13,7 +13,9 @@ from shikhu.store import init_db
 
 def init(
     no_skill: bool = typer.Option(
-        False, "--no-skill", help="Skip installing the /shikhu-study skill for your agent."
+        False,
+        "--no-skill",
+        help="Skip installing the /shikhu-inquiry and /shikhu-study skills for your agent.",
     ),
 ):
     """Set up Shikhu: create DB, check API keys, generate .quizignore."""

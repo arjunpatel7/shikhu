@@ -120,9 +120,9 @@ def test_attribution_label_round_trip(tmp_path):
         signals={"window_size": 5, "tool_calls_seen": 3, "prompt_mention_hit": False},
     )
     label_id = store.insert_attribution_label(
-        query_id=42, query_source="raw_prompts", result=result
+        query_id=42, query_source="review_questions", result=result
     )
-    fetched = store.get_attribution_label(query_id=42, query_source="raw_prompts")
+    fetched = store.get_attribution_label(query_id=42, query_source="review_questions")
 
     assert fetched["attributed_file"] == "src/shikhu/refresh.py"
     assert fetched["score"] == 1.5
@@ -130,6 +130,6 @@ def test_attribution_label_round_trip(tmp_path):
     assert fetched["user_label"] is None
 
     store.set_attribution_user_label(label_id, "confirmed")
-    after = store.get_attribution_label(query_id=42, query_source="raw_prompts")
+    after = store.get_attribution_label(query_id=42, query_source="review_questions")
     assert after["user_label"] == "confirmed"
     assert after["labeled_at"] is not None

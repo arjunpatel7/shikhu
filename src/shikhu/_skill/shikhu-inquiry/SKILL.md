@@ -70,8 +70,8 @@ normally and say nothing about shikhu.
 Structure the answer so the files come first and carry their justification:
 
 > Two files answer this. **`src/shikhu/store.py`** is where it actually lives — it's the
-> SQLite persistence layer, and the `questions` table is defined there. **`src/shikhu/ingest.py`**
-> matters because it's what writes rows in the first place.
+> SQLite persistence layer, and the `questions` table is defined there. **`src/shikhu/commands/generate_from_study.py`**
+> matters because it's what writes new questions in the first place.
 >
 > [then the actual explanation, citing `path:line`]
 

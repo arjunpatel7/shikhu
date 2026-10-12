@@ -1,19 +1,29 @@
 """Past prompts from this repo's Claude Code transcripts — the input to `shikhu map`.
 
-Stricter than `ingest._iter_user_prompts`, which only drops slash commands: here every kept
-prompt is sent to Jev, so harness boilerplate would be paid for and could land on the map.
-No regex conceptual filter, though — the Jev benchmark showed one ahead of Jev destroys
-recall, and Jev itself decides what is a question about this codebase.
+Every kept prompt is sent to Jev, so harness boilerplate is filtered out here: it would be
+paid for and could land on the map. There is no regex conceptual filter, though — the Jev
+benchmark showed one ahead of Jev destroys recall, and Jev itself decides what is a question
+about this codebase.
 """
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from shikhu.ingest import _project_transcripts_dir
-
 MIN_LENGTH = 15
+
+
+def _encoded_cwd(cwd: str) -> str:
+    """Mirror Claude Code's project-directory encoding: '/', '_', '.' all become '-'."""
+    return re.sub(r"[/_.]", "-", cwd)
+
+
+def project_transcripts_dir(cwd: str | None = None) -> Path:
+    """Where Claude Code keeps the transcripts of sessions run from `cwd` (default: here)."""
+    return Path.home() / ".claude" / "projects" / _encoded_cwd(cwd or os.getcwd())
+
 
 # Turns the harness writes as the user: task notifications, slash-command echoes, command
 # stdout, pasted blocks, interruption markers and the like. Tagged turns all open with "<".
@@ -114,7 +124,7 @@ def scan(
     Resumed and forked sessions copy earlier turns into new transcript files, so the same
     prompt shows up many times; the earliest copy is kept."""
     if transcripts_dir is None:
-        transcripts_dir = _project_transcripts_dir(cwd)
+        transcripts_dir = project_transcripts_dir(cwd)
     if not transcripts_dir.exists():
         return [], 0
     paths = sorted(transcripts_dir.glob("*.jsonl"))

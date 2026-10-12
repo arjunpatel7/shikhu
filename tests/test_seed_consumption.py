@@ -112,7 +112,7 @@ def test_requeue_merges_seeds_and_stamps_reasked_at():
 
 
 def test_requeue_does_not_mix_seed_sources():
-    qid = _question(seed_query_source="raw_prompts", seed_query_ids="[7]")
+    qid = _question(seed_query_source="past_prompts", seed_query_ids="[7]")
     store.requeue_question(qid, [99])
     row = _row(qid)
     assert json.loads(row["seed_query_ids"]) == [7] and row["reasked_at"] is not None
@@ -173,15 +173,13 @@ def _run(match=None, generated=None):
     with (
         patch("shikhu.generator.generate_questions_from_study_seeds", fake_gen),
         patch("shikhu.inquiry.match_existing", match or (lambda t, c: {})),
-        patch("shikhu.commands.generate_from_study.ingest_recent"),
     ):
         return runner.invoke(app, ["generate-from-study", "a.py"]), calls
 
 
 def test_no_seeds_at_all_still_exits_one():
     """The real generator returns None when a file has no seeds, before any API call."""
-    with patch("shikhu.commands.generate_from_study.ingest_recent"):
-        result = runner.invoke(app, ["generate-from-study", "a.py"])
+    result = runner.invoke(app, ["generate-from-study", "a.py"])
     assert result.exit_code == 1
 
 

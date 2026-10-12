@@ -15,7 +15,6 @@ from shikhu.commands.utils import (
     ensure_api_key,
     get_trackable_files,
 )
-from shikhu.ingest import ingest_recent
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import delete_summaries_not_in, init_db
 
@@ -35,10 +34,6 @@ def refresh(
     load_dotenv(find_dotenv(usecwd=True))
     ensure_api_key()
     init_db()
-    try:
-        ingest_recent()
-    except Exception:
-        pass  # ingestion is non-critical
 
     console.print()
 

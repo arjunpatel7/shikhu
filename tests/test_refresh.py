@@ -64,7 +64,6 @@ def test_refresh_generated_questions_go_stale_after_edit(tmp_path):
 
     def _refresh():
         with (
-            patch("shikhu.commands.refresh.ingest_recent"),
             patch("shikhu.commands.refresh.get_trackable_files", return_value=[path]),
             patch("shikhu.commands.refresh._summarize_one", return_value=(path, "fresh", None)),
             patch("shikhu.generator.generate_question_from_file", return_value=_fake_quiz()),

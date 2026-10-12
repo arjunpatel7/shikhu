@@ -24,7 +24,6 @@ from shikhu.commands.utils import (
     ensure_api_key,
     get_trackable_files,
 )
-from shikhu.ingest import _project_transcripts_dir
 from shikhu.inquiry import MAP_ALGO_VERSION, past_question_bar, score_past_prompt
 from shikhu.store import (
     add_past_prompts,
@@ -36,7 +35,7 @@ from shikhu.store import (
     init_db,
     save_past_prompt_score,
 )
-from shikhu.transcripts import scan
+from shikhu.transcripts import project_transcripts_dir, scan
 
 # Files shorter than this hold no concept to ask about, yet a package __init__ whose summary
 # describes the whole package soaks up broad questions. They are left off the map.
@@ -230,7 +229,7 @@ def map_(
         f for f in get_trackable_files(DEFAULT_EXTENSIONS) if _line_count(f) >= MIN_MAP_LINES
     ]
 
-    transcripts_dir = Path(transcripts) if transcripts else _project_transcripts_dir()
+    transcripts_dir = Path(transcripts) if transcripts else project_transcripts_dir()
     prompts, n_transcripts = scan(transcripts_dir)
     added = add_past_prompts(prompts)
     counts = count_past_prompts(MAP_ALGO_VERSION)
