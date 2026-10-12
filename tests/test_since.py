@@ -176,7 +176,6 @@ def test_refresh_since_limits_generation(tmp_path):
     q = MCQuestion(question="Why?", choices=["a", "b", "c", "d"], correct_index=0)
 
     with (
-        patch("shikhu.commands.refresh.ingest_recent"),
         patch("shikhu.commands.refresh.get_trackable_files", return_value=[changed, other]),
         patch("shikhu.commands.refresh.changed_files", return_value=[changed]),
         patch(

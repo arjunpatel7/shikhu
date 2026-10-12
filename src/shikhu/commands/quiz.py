@@ -8,7 +8,6 @@ from rich.prompt import Prompt
 from rich.rule import Rule
 
 from shikhu.commands.utils import changed_files, console, get_trackable_files
-from shikhu.ingest import ingest_recent
 from shikhu.staleness import mark_stale_questions
 from shikhu.store import (
     discard_revalidation,
@@ -111,10 +110,6 @@ def quiz(
     if file and since:
         raise typer.BadParameter("Use --file or --since, not both.")
     init_db()
-    try:
-        ingest_recent()
-    except Exception:
-        pass  # ingestion is non-critical
     # Local and free: stale edited files first so their goldens come up for re-validation.
     mark_stale_questions()
 

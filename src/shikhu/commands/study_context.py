@@ -6,7 +6,6 @@ Called by the /shikhu-study skill so the skill doesn't need inline python one-li
 import typer
 
 from shikhu.commands.utils import console
-from shikhu.ingest import ingest_recent
 from shikhu.store import get_reviews_for_file, get_summary, init_db
 
 
@@ -15,10 +14,6 @@ def study_context(
 ):
     """Print the cached file summary and prior review records for a file."""
     init_db()
-    try:
-        ingest_recent()
-    except Exception:
-        pass  # ingestion is non-critical
 
     summary = get_summary(file_path)
     console.print(f"[bold]=== Summary for {file_path} ===[/bold]")

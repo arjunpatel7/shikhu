@@ -25,7 +25,6 @@ def test_init_creates_db(tmp_path, monkeypatch):
     expected = {
         "files",
         "questions",
-        "raw_prompts",
         "file_summaries",
         "reviews",
         "review_questions",

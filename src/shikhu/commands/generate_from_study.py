@@ -4,7 +4,6 @@ import typer
 from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.utils import console, ensure_api_key
-from shikhu.ingest import ingest_recent
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import init_db, insert_questions
 
@@ -39,10 +38,6 @@ def generate_from_study(
     load_dotenv(find_dotenv(usecwd=True))
     ensure_api_key()
     init_db()
-    try:
-        ingest_recent()
-    except Exception:
-        pass  # ingestion is non-critical
 
     # Stale older questions against the previous baseline before the new questions move it.
     mark_stale_questions()

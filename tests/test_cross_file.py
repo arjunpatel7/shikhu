@@ -236,7 +236,6 @@ def test_commit_pin_only_when_every_file_matches_one_commit(tmp_path, monkeypatc
             lambda *a, **k: (_fake_quiz(), {"completion_tokens": 1, "elapsed": 0.1}, [1], ["b.py"]),
         ),
         patch("shikhu.commands.generate_from_study.pin_commit", lambda p, h: next(it)),
-        patch("shikhu.commands.generate_from_study.ingest_recent"),
     ):
         result = runner.invoke(app, ["generate-from-study", "a.py"])
     assert result.exit_code == 0, result.output

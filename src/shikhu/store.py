@@ -5,7 +5,6 @@ Sections, in file order:
     Files                  get_or_create_file, read_file_lines, get_current_git_hash
     Questions              insert/get/grade/golden/flag/coverage helpers
     Attempts               insert_attempt, get_attempts: who answered what, and how it was graded
-    Raw prompts            insert/get/label helpers for transcript-captured prompts
     File summaries         upsert_summary, get_summary, delete_summaries_not_in
     Reviews                start_review, end_review, get_reviews_for_file
     Review questions       log_study_question + readers for /shikhu-study sessions
@@ -46,9 +45,6 @@ MIGRATIONS = [
     ("questions", "prompt_version", "TEXT"),
     ("files", "content_hash", "TEXT"),
     ("questions", "golden", "BOOLEAN DEFAULT FALSE"),
-    ("raw_prompts", "is_conceptual", "BOOLEAN"),
-    ("raw_prompts", "message_index", "INTEGER"),
-    ("raw_prompts", "transcript_path", "TEXT"),
     ("questions", "seed_query_ids", "TEXT"),
     ("questions", "seed_query_source", "TEXT"),
     ("questions", "created_at", "TIMESTAMP"),
@@ -120,15 +116,6 @@ def init_db():
                 quality_note TEXT,
                 reject_reason TEXT,
                 prompt_version TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS raw_prompts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                session_id TEXT,
-                prompt_text TEXT NOT NULL,
-                label TEXT,
-                label_note TEXT
             );
 
             CREATE TABLE IF NOT EXISTS file_summaries (
@@ -254,10 +241,6 @@ def init_db():
             cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
             if old in cols and new not in cols:
                 conn.execute(f"ALTER TABLE {table} RENAME COLUMN {old} TO {new}")
-        conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_prompts_session_msg "
-            "ON raw_prompts(session_id, message_index)"
-        )
         _backfill_human_attempts(conn)
 
 
@@ -717,48 +700,6 @@ def get_attempts(
     return out
 
 
-# --- Raw prompts ---
-
-
-def insert_raw_prompt(
-    prompt_text: str, session_id: str = "", is_conceptual: bool | None = None
-) -> int:
-    with _conn() as conn:
-        cursor = conn.execute(
-            "INSERT INTO raw_prompts (prompt_text, session_id, is_conceptual) VALUES (?, ?, ?)",
-            (prompt_text, session_id, is_conceptual),
-        )
-        return cursor.lastrowid
-
-
-def get_conceptual_prompts(limit: int = 50) -> list[dict]:
-    """Return captured prompts the classifier flagged as conceptual, oldest first."""
-    with _conn() as conn:
-        rows = conn.execute(
-            "SELECT id, timestamp, session_id, prompt_text FROM raw_prompts "
-            "WHERE is_conceptual = TRUE ORDER BY timestamp ASC LIMIT ?",
-            (limit,),
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def get_unlabeled_prompts(limit: int = 50) -> list[dict]:
-    with _conn() as conn:
-        rows = conn.execute(
-            "SELECT id, timestamp, prompt_text FROM raw_prompts WHERE label IS NULL ORDER BY timestamp ASC LIMIT ?",
-            (limit,),
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def label_prompt(prompt_id: int, label: str, note: str = ""):
-    with _conn() as conn:
-        conn.execute(
-            "UPDATE raw_prompts SET label = ?, label_note = ? WHERE id = ?",
-            (label, note, prompt_id),
-        )
-
-
 # --- File summaries ---
 
 
@@ -999,7 +940,7 @@ def requeue_question(
 
 
 def insert_attribution_label(query_id: int, query_source: str, result) -> int:
-    """Persist an AttributionResult against a query (raw_prompts or review_questions row)."""
+    """Persist an AttributionResult against a query (e.g. a review_questions row)."""
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO attribution_labels "
@@ -1057,11 +998,6 @@ def get_seed_texts(seed_ids: list[int], source: str) -> list[dict]:
         elif source == "past_prompts":
             rows = conn.execute(
                 f"SELECT id, prompt_text AS text FROM past_prompts WHERE id IN ({placeholders}) ORDER BY id DESC",
-                seed_ids,
-            ).fetchall()
-        elif source == "raw_prompts":
-            rows = conn.execute(
-                f"SELECT id, prompt_text AS text FROM raw_prompts WHERE id IN ({placeholders}) ORDER BY id DESC",
                 seed_ids,
             ).fetchall()
         else:

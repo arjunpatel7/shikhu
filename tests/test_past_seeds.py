@@ -44,7 +44,6 @@ def _run(match=None):
     with (
         patch("shikhu.generator.generate_questions_from_study_seeds", fake_gen),
         patch("shikhu.inquiry.match_existing", match or (lambda t, c: {})),
-        patch("shikhu.commands.generate_from_study.ingest_recent"),
     ):
         return runner.invoke(app, ["generate-from-study", "a.py"]), calls
 
@@ -179,7 +178,6 @@ def test_a_failed_generation_says_so_and_leaves_the_seed_unused(tmp_path, monkey
 
     with (
         patch("shikhu.generator.generate_questions_from_study_seeds", cut_off),
-        patch("shikhu.commands.generate_from_study.ingest_recent"),
     ):
         result = runner.invoke(app, ["generate-from-study", "a.py"])
     assert result.exit_code == 1
@@ -218,7 +216,6 @@ def test_only_the_past_batch_is_flagged_past(tmp_path, monkeypatch):
     with (
         patch("shikhu.generator.generate_questions_from_study_seeds", fake_gen),
         patch("shikhu.inquiry.match_existing", lambda t, c: {}),
-        patch("shikhu.commands.generate_from_study.ingest_recent"),
     ):
         result = runner.invoke(app, ["generate-from-study", "a.py"])
     assert result.exit_code == 0, result.output

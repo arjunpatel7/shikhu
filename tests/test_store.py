@@ -37,17 +37,6 @@ def test_summary_upsert_replaces_row():
     assert store.get_summary("never-touched.py") is None
 
 
-def test_raw_prompt_classification_round_trip():
-    """insert_raw_prompt persists is_conceptual; get_conceptual_prompts returns only TRUE rows."""
-    store.insert_raw_prompt("why does mercury return JSON?", session_id="s1", is_conceptual=True)
-    store.insert_raw_prompt("run the tests", session_id="s1", is_conceptual=False)
-    store.insert_raw_prompt("ambient capture without classifier", session_id="s2")
-
-    conceptual = store.get_conceptual_prompts()
-    assert len(conceptual) == 1
-    assert conceptual[0]["prompt_text"] == "why does mercury return JSON?"
-
-
 def test_review_lifecycle():
     """Start a review, log a question against it, end it with a summary."""
     rid = store.start_review("store.py", transcript_path="/tmp/fake.jsonl")
