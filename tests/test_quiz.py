@@ -56,12 +56,37 @@ def test_quiz_flag_bad():
     from shikhu.cli import app
 
     ids = _insert_questions("fake.py", n=1)
-    result = runner.invoke(app, ["quiz", "--n", "1"], input="a\nb\n")
+    result = runner.invoke(app, ["quiz", "--n", "1"], input="a\nb\n\n")
     assert result.exit_code == 0
     conn = store._get_conn()
-    row = conn.execute("SELECT quality_flag FROM questions WHERE id = ?", (ids[0],)).fetchone()
+    row = conn.execute(
+        "SELECT quality_flag, quality_note FROM questions WHERE id = ?", (ids[0],)
+    ).fetchone()
     conn.close()
     assert row["quality_flag"] == "bad"
+    assert row["quality_note"] == ""  # Enter skips the reason
+
+
+def test_a_bad_rating_records_why():
+    from shikhu.cli import app
+
+    ids = _insert_questions("fake.py", n=1)
+    result = runner.invoke(app, ["quiz", "--n", "1"], input="a\nb\n  key is wrong  \n")
+    assert result.exit_code == 0
+    assert "What's wrong with it?" in result.output
+    conn = store._get_conn()
+    row = conn.execute("SELECT quality_note FROM questions WHERE id = ?", (ids[0],)).fetchone()
+    conn.close()
+    assert row["quality_note"] == "key is wrong"
+
+
+def test_a_good_rating_does_not_ask_why():
+    from shikhu.cli import app
+
+    _insert_questions("fake.py", n=1)
+    result = runner.invoke(app, ["quiz", "--n", "1"], input="a\ng\nn\n")
+    assert result.exit_code == 0
+    assert "What's wrong with it?" not in result.output
 
 
 def test_quiz_revalidates_golden_on_correct():

@@ -234,7 +234,13 @@ def quiz(
                         mark_golden(q["id"])
                         console.print("  [bold yellow]Golden question![/bold yellow]")
             elif flag == "b":
-                flag_question(q["id"], quality_flag="bad")
+                # Without a reason, "the question is flawed" and "I got it wrong" look the same.
+                note = Prompt.ask(
+                    "  What's wrong with it? [dim](a few words, Enter to skip)[/dim]",
+                    default="",
+                    show_default=False,
+                )
+                flag_question(q["id"], quality_flag="bad", quality_note=note.strip())
 
         # Active-learning: confirm/correct low-confidence seed attributions (dormant for /shikhu-study seeds)
         _maybe_prompt_for_attribution(q)
