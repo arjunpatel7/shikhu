@@ -16,11 +16,11 @@ jobs:
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-      - uses: imbue-ai/vet@main
+      - uses: imbue-ai/vet@36faf17514e69e05fbeb345b01a899f8a2ad490e # v0.2.16
         with:
           agentic: false
           model: gemini-3.5-flash
