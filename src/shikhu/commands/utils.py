@@ -12,6 +12,22 @@ console = Console()
 
 COVERED_THRESHOLD = 3
 
+# A short file runs out of distinct things to ask after a question or two, and further
+# questions repeat it, so it needs fewer goldens to count as covered. A heuristic for now.
+SMALL_FILE_LINES = 75  # non-blank lines
+SMALL_FILE_TARGET = 1
+
+
+def golden_target(path: str) -> int:
+    """Golden questions `path` needs to count as covered: fewer for short files."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = sum(1 for line in f if line.strip())
+    except OSError:
+        return COVERED_THRESHOLD
+    return SMALL_FILE_TARGET if lines < SMALL_FILE_LINES else COVERED_THRESHOLD
+
+
 # Extensions tracked for question generation and coverage.
 DEFAULT_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css"
 # Summaries also cover docs — kept as a superset of DEFAULT_EXTENSIONS so

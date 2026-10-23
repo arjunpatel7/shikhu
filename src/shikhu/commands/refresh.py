@@ -8,15 +8,15 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 
 from shikhu.commands.summarize import _summarize_one
 from shikhu.commands.utils import (
-    COVERED_THRESHOLD,
     DEFAULT_EXTENSIONS,
     changed_files,
     console,
     ensure_api_key,
     get_trackable_files,
+    golden_target,
 )
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
-from shikhu.store import delete_summaries_not_in, init_db
+from shikhu.store import delete_summaries_not_in, get_golden_counts, init_db
 
 
 def refresh(
@@ -106,12 +106,13 @@ def refresh(
         from shikhu.store import insert_questions
 
         trackable = changed_files(since, extensions) if since else get_trackable_files(extensions)
+        # Generate only what could still take a file to its target: its goldens plus the
+        # questions already waiting count toward it, so a covered file gets nothing new and a
+        # short file never piles up near-duplicates.
         existing = _get_unasked_counts()
-        to_generate = [
-            (f, COVERED_THRESHOLD - existing.get(f, 0))
-            for f in trackable
-            if existing.get(f, 0) < COVERED_THRESHOLD
-        ]
+        golden = get_golden_counts()
+        needed = {f: golden_target(f) - golden.get(f, 0) - existing.get(f, 0) for f in trackable}
+        to_generate = [(f, n) for f, n in needed.items() if n > 0]
 
         if not to_generate:
             console.print("  [green]>[/green] All files have enough questions")
