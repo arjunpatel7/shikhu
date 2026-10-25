@@ -168,7 +168,7 @@ shikhu quiz --since main               # quiz only on changed files (re-validati
 shikhu coverage --since main --check   # exit 1 if a changed file has no fresh golden question
 ```
 
-`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so run it on your machine (for example in a pre-push hook), not in CI.
+`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. With `--since`, a file changed by more than 10 lines only counts goldens on questions written since your branch started, so re-checking an old question can't pass it; ask about the change with `/shikhu-inquiry` and quiz on the new questions. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so run it on your machine (for example in a pre-push hook), not in CI.
 
 ## Concepts
 
