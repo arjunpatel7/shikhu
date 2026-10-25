@@ -516,13 +516,20 @@ def mark_golden(question_id: int):
         conn.execute("UPDATE questions SET golden = TRUE WHERE id = ?", (question_id,))
 
 
-def get_golden_counts() -> dict[str, int]:
-    """Return {file_path: count} of golden non-stale questions per file."""
+def get_golden_counts(created_since: int | None = None) -> dict[str, int]:
+    """Return {file_path: count} of golden non-stale questions per file.
+
+    With created_since (unix time), only questions created at or after it count."""
+    since_sql, params = "", ()
+    if created_since is not None:
+        since_sql = " AND CAST(strftime('%s', q.created_at) AS INTEGER) >= ?"
+        params = (created_since,)
     with _conn() as conn:
         rows = conn.execute(
             "SELECT l.file_path, COUNT(*) as cnt FROM questions q "
             "JOIN question_links l ON l.question_id = q.id "
-            "WHERE q.golden = TRUE AND q.stale = FALSE GROUP BY l.file_path"
+            f"WHERE q.golden = TRUE AND q.stale = FALSE{since_sql} GROUP BY l.file_path",
+            params,
         ).fetchall()
     return {row["file_path"]: row["cnt"] for row in rows}
 

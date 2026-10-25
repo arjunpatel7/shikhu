@@ -1,5 +1,6 @@
 """Tests for the PR-slice helpers: changed_files, --since, and coverage --check/--min."""
 
+import os
 import subprocess
 from unittest.mock import patch
 
@@ -191,3 +192,106 @@ def test_refresh_since_limits_generation(tmp_path):
     assert result.exit_code == 0, result.output
     assert [c.args[0] for c in gen.call_args_list] == [changed]
     assert [c.args[0] for c in summ.call_args_list] == [changed]
+
+
+def _commit_at(cwd, when, *args):
+    """Commit with a fixed committer date, so branch_start is predictable."""
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-q",
+            *args,
+        ],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        env={**os.environ, "GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when},
+    )
+
+
+def _golden_created(file_path, created_at):
+    [qid] = _insert_questions(file_path, n=1)
+    conn = store._get_conn()
+    conn.execute(
+        "UPDATE questions SET golden = TRUE, created_at = ? WHERE id = ?", (created_at, qid)
+    )
+    conn.commit()
+    conn.close()
+
+
+@pytest.fixture
+def branch(tmp_path, monkeypatch):
+    """main forks at 2026-01-01 00:00 UTC; `feature` rewrites big.py and touches small.py."""
+    _git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "big.py").write_text("x = 1\n")
+    (tmp_path / "small.py").write_text("x = 1\n")
+    _git(tmp_path, "add", ".")
+    _commit_at(tmp_path, "2026-01-01T00:00:00Z", "-m", "base")
+    _git(tmp_path, "checkout", "-q", "-b", "feature")
+    (tmp_path / "big.py").write_text("".join(f"x{i} = {i}\n" for i in range(20)))
+    (tmp_path / "small.py").write_text("x = 2\n")
+    _commit_at(tmp_path, "2026-01-02T00:00:00Z", "-am", "feature work")
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+FORK = 1767225600  # 2026-01-01T00:00:00Z
+
+
+def test_changed_line_counts_include_uncommitted(branch):
+    from shikhu.commands.utils import changed_line_counts
+
+    (branch / "small.py").write_text("x = 3\ny = 1\n")  # uncommitted
+    assert changed_line_counts("main") == {"big.py": 21, "small.py": 3}
+
+
+def test_branch_start_survives_merging_main_in(branch):
+    from shikhu.commands.utils import branch_start
+
+    assert branch_start("main") == FORK
+    _git(branch, "checkout", "-q", "main")
+    (branch / "other.py").write_text("y = 1\n")
+    _git(branch, "add", "other.py")
+    _commit_at(branch, "2026-02-01T00:00:00Z", "-m", "main moved on")
+    _git(branch, "checkout", "-q", "feature")
+    _commit_at(branch, "2026-02-02T00:00:00Z", "--allow-empty", "-m", "wip")
+    _git(branch, "merge", "-q", "--no-edit", "main")
+
+    assert branch_start("main") == FORK
+
+
+def test_branch_start_without_own_commits_is_head(repo):
+    from shikhu.commands.utils import branch_start
+
+    head = subprocess.run(["git", "log", "-1", "--format=%ct"], capture_output=True, text=True)
+    assert branch_start("main") == int(head.stdout)
+
+
+def test_gate_counts_only_new_questions_for_big_changes(branch):
+    _golden_created("big.py", "2025-12-31 00:00:00")  # written before the branch: doesn't count
+    _golden_created("small.py", "2025-12-31 00:00:00")  # small change: still counts
+
+    result = runner.invoke(app, ["coverage", "--since", "main", "--check"])
+    assert result.exit_code == 1
+    out = " ".join(result.output.split())
+    assert "1 file(s) below 1" in out
+    assert "/shikhu-inquiry" in out
+    assert "only count questions written since this branch started" in out
+
+    _golden_created("big.py", "2026-01-01 00:00:00")  # exactly at the fork counts
+    result = runner.invoke(app, ["coverage", "--since", "main", "--check"])
+    assert result.exit_code == 0, result.output
+
+
+def test_plain_coverage_counts_old_goldens(branch):
+    _golden_created("big.py", "2025-12-31 00:00:00")
+    assert runner.invoke(app, ["coverage", "--check"]).exit_code == 1  # small.py has none
+    _golden_created("small.py", "2025-12-31 00:00:00")
+    assert runner.invoke(app, ["coverage", "--check"]).exit_code == 0

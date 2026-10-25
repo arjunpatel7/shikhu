@@ -11,6 +11,9 @@ from rich.console import Console
 console = Console()
 
 COVERED_THRESHOLD = 3
+# A file with more changed lines than this on a branch needs goldens on questions written
+# since the branch started; re-checking older questions doesn't show you learned the change.
+LARGE_CHANGE_LINES = 10
 
 # Extensions tracked for question generation and coverage.
 DEFAULT_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css"
@@ -66,6 +69,30 @@ def changed_files(base: str, extensions: str = DEFAULT_EXTENSIONS) -> list[str]:
     changed = set(_git_lines("diff", "--name-only", "--diff-filter=d", f"{base}...HEAD"))
     changed |= set(_git_lines("diff", "--name-only", "--diff-filter=d", "HEAD"))
     return [f for f in get_trackable_files(extensions) if f in changed]
+
+
+def changed_line_counts(base: str) -> dict[str, int]:
+    """{path: lines added + removed} on this branch since `base`, plus uncommitted edits.
+
+    Measured from the merge base, like changed_files. Binary files count as 0."""
+    merge_base = _git_lines("merge-base", base, "HEAD")
+    if not merge_base:
+        return {}
+    counts = {}
+    for line in _git_lines("diff", "--numstat", "--no-renames", merge_base[0]):
+        added, removed, path = line.split("\t", 2)
+        counts[path] = int(added) + int(removed) if added != "-" else 0
+    return counts
+
+
+def branch_start(base: str) -> int:
+    """Unix time of the commit this branch forked from `base` at.
+
+    Follows first parents, so merging `base` into the branch later doesn't move it. With no
+    commits of its own yet, the branch starts at HEAD."""
+    own = _git_lines("rev-list", "--first-parent", f"{base}..HEAD")
+    fork = _git_lines("log", "-1", "--format=%ct", f"{own[-1]}^1" if own else "HEAD")
+    return int(fork[0]) if fork else 0
 
 
 def get_trackable_files(

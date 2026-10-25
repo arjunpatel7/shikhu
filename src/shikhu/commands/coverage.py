@@ -7,7 +7,10 @@ from rich.table import Table
 from shikhu.commands.utils import (
     COVERED_THRESHOLD,
     DEFAULT_EXTENSIONS,
+    LARGE_CHANGE_LINES,
+    branch_start,
     changed_files,
+    changed_line_counts,
     console,
     get_trackable_files,
 )
@@ -52,6 +55,15 @@ def coverage(
             return
 
     golden_map = get_golden_counts()
+    # On a branch, a file you really changed needs goldens on questions written since the branch
+    # started: re-checking an older question shows you knew the old code, not the change.
+    large = []
+    if since:
+        lines = changed_line_counts(since)
+        large = sorted(f for f in trackable if lines.get(f, 0) > LARGE_CHANGE_LINES)
+        if large:
+            new_golden = get_golden_counts(created_since=branch_start(since))
+            golden_map = {**golden_map, **{f: new_golden.get(f, 0) for f in large}}
 
     fully_covered = []
     partial = []
@@ -131,6 +143,13 @@ def coverage(
         for f in sorted(no_coverage):
             console.print(f"[dim]    {f}[/dim]")
 
+    if large:
+        console.print()
+        console.print(
+            f"[dim]  {len(large)} file(s) changed by more than {LARGE_CHANGE_LINES} lines only count "
+            f"questions written since this branch started.[/dim]"
+        )
+
     console.print()
     print_update_nudge()
 
@@ -139,9 +158,18 @@ def coverage(
         if needs_review:
             scope = f" --since {since}" if since else ""
             console.print(
-                f"[red]x[/red] {len(needs_review)} file(s) below {target} fresh golden question(s). "
-                f"Run [bold]shikhu quiz{scope}[/bold] (or [bold]shikhu refresh{scope}[/bold] if out of questions)."
+                f"[red]x[/red] {len(needs_review)} file(s) below {target} fresh golden question(s)."
             )
+            if set(needs_review) - set(large):
+                console.print(
+                    f"  Run [bold]shikhu quiz{scope}[/bold] (or [bold]shikhu refresh{scope}[/bold] if out of questions)."
+                )
+            if set(needs_review) & set(large):
+                console.print(
+                    "  For a file you changed a lot, re-checking older questions won't do it. Ask about "
+                    "your change with [bold]/shikhu-inquiry[/bold], then run "
+                    "[bold]shikhu generate-from-study <file>[/bold] and [bold]shikhu quiz --file <file>[/bold]."
+                )
             raise typer.Exit(code=1)
         console.print(
             f"[green]>[/green] All files have at least {target} fresh golden question(s)."
