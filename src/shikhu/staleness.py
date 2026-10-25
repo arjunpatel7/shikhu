@@ -1,0 +1,166 @@
+"""Staleness detection via file content hashing.
+
+Detects changes by hashing file contents. Python files are hashed over their
+parsed AST (with docstrings stripped), so comment, whitespace, and docstring
+edits don't invalidate questions — only code changes do. Every other file type
+(and any .py file that fails to parse) falls back to a SHA-256 byte hash.
+When a file's content changes, all non-stale questions for that file
+are marked stale. No git dependency required.
+"""
+
+import ast
+import hashlib
+import subprocess
+
+from shikhu.store import _get_conn, get_current_git_hash
+
+
+def _strip_docstrings(tree: ast.AST) -> None:
+    """Remove docstring statements in place from modules, functions, and classes.
+
+    Comments and formatting are never in the AST, but docstrings are, so a
+    docstring edit would otherwise change the hash. Drop the leading string
+    expression from each scope that can carry one.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            body = node.body
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
+                node.body = body[1:]
+
+
+def _ast_hash(source: str) -> str:
+    """SHA-256 over the parsed AST (docstrings stripped, no line/col attributes).
+
+    Raises SyntaxError/ValueError if the source is not valid Python.
+    """
+    tree = ast.parse(source)
+    _strip_docstrings(tree)
+    return hashlib.sha256(ast.dump(tree).encode()).hexdigest()
+
+
+def hash_content(filepath: str, content: bytes) -> str:
+    """Content hash of `content` as it would be for a file named `filepath`.
+
+    Python files are hashed over their AST so comment/whitespace/docstring
+    edits don't count as changes. Everything else — and any .py file that
+    fails to parse — uses a SHA-256 byte hash. The path only picks the strategy.
+    """
+    if filepath.endswith(".py"):
+        try:
+            return _ast_hash(content.decode("utf-8"))
+        except (SyntaxError, ValueError, UnicodeDecodeError):
+            pass  # malformed Python — fall back to the byte hash below
+
+    return hashlib.sha256(content).hexdigest()
+
+
+def compute_file_hash(filepath: str) -> str | None:
+    """Content hash of a file on disk. Returns None if the file is missing."""
+    try:
+        with open(filepath, "rb") as f:
+            content = f.read()
+    except FileNotFoundError:
+        return None
+    return hash_content(filepath, content)
+
+
+def pin_commit(filepath: str, content_hash: str | None) -> str | None:
+    """HEAD's sha, if the file at HEAD hashes identically to `content_hash`; else None.
+
+    A question is only reproducible at a commit whose copy of the file is what the question
+    was written about. Recording HEAD unconditionally would pin questions to trees they were
+    never about whenever the working copy had uncommitted edits — a wrong pin is worse than
+    none, so anything unverifiable (no hash, untracked, edited since HEAD, no git) is None.
+
+    Compared with the same hash the staleness check uses, so for Python this means the code
+    is identical at HEAD, not necessarily the comments or docstrings.
+    """
+    if not content_hash:
+        return None
+    try:
+        shown = subprocess.run(["git", "show", f"HEAD:./{filepath}"], capture_output=True)
+    except FileNotFoundError:
+        return None  # git not installed
+    if shown.returncode != 0:
+        return None  # not a repo, no commits yet, or not tracked at HEAD
+    if hash_content(filepath, shown.stdout) != content_hash:
+        return None
+    return get_current_git_hash()
+
+
+def mark_stale_questions() -> int:
+    """Check all files with questions and mark questions stale if content changed.
+
+    For each file that has non-stale questions and a stored content_hash:
+    1. Compute the current hash of the file on disk.
+    2. If the hash matches, skip (nothing changed).
+    3. If the hash differs (or file is missing), mark ALL non-stale questions stale.
+    4. Update the stored content_hash to the current value.
+
+    Files that have non-stale questions but no stored hash (databases created before
+    generation recorded one) are baselined to their current hash first, without
+    marking anything stale — today's content is treated as what was understood.
+
+    Returns the number of questions marked stale.
+    """
+    conn = _get_conn()
+
+    unbaselined = conn.execute("""
+        SELECT f.id, f.filepath
+        FROM files f
+        WHERE f.content_hash IS NULL
+        AND EXISTS (SELECT 1 FROM question_links l JOIN questions q ON q.id = l.question_id
+                    WHERE l.file_path = f.filepath AND q.stale = FALSE)
+    """).fetchall()
+    for file in unbaselined:
+        current_hash = compute_file_hash(file["filepath"])
+        if current_hash is not None:
+            conn.execute(
+                "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?",
+                (current_hash, file["id"]),
+            )
+
+    files = conn.execute("""
+        SELECT f.id, f.filepath, f.content_hash
+        FROM files f
+        WHERE f.content_hash IS NOT NULL
+        AND EXISTS (SELECT 1 FROM question_links l JOIN questions q ON q.id = l.question_id
+                    WHERE l.file_path = f.filepath AND q.stale = FALSE)
+    """).fetchall()
+
+    stale_count = 0
+
+    for file in files:
+        current_hash = compute_file_hash(file["filepath"])
+
+        if current_hash == file["content_hash"]:
+            continue
+
+        # File changed (or was deleted) — mark all non-stale questions stale, including
+        # cross-file questions that merely touch it.
+        # Golden ones also enter pending re-validation so they can be re-earned
+        # rather than silently dropping out of coverage (see store.reinstate_golden).
+        result = conn.execute(
+            "UPDATE questions SET stale = TRUE, "
+            "pending_revalidation = CASE WHEN golden THEN TRUE ELSE pending_revalidation END "
+            "WHERE id IN (SELECT question_id FROM question_links WHERE file_path = ?) "
+            "AND stale = FALSE",
+            (file["filepath"],),
+        )
+        stale_count += result.rowcount
+
+        # Update stored hash (None if file was deleted)
+        conn.execute(
+            "UPDATE files SET content_hash = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?",
+            (current_hash, file["id"]),
+        )
+
+    conn.commit()
+    conn.close()
+    return stale_count

@@ -1,0 +1,56 @@
+version = "v4"
+
+[conceptual_definition]
+text = """
+Conceptual understanding means grasping the core principles, design patterns, \
+and intended usage behind tools, libraries, and architecture — the understanding \
+needed to judge whether AI-generated code is appropriate, not just functional.
+
+A good conceptual question tests WHY something is done a certain way, not WHAT \
+the code does. It should require reasoning about design decisions, trade-offs, \
+or how components interact — not just reading the code and finding a literal answer."""
+
+[file_prompt]
+text = """
+Given this code file, generate up to {n} conceptual multiple choice questions. \
+Generate fewer if the file doesn't warrant {n} distinct conceptual questions — \
+avoid redundant or trivial questions. Each question should test a different concept.
+
+Conceptual multiple choice questions aim to help users gain understanding of what a file does
+for a repo, and why. Avoid focusing on details that could be considered minute or not intrinsic
+to the intent of the file. In other words, stylistic choices, ergonomics, or opinions about code are not as important
+as the functional necessity of what the code does.
+
+Make the wrong answer choices plausible. Each distractor should sound \
+reasonable to someone who has seen the code but doesn't deeply understand the design. \
+Avoid obviously wrong choices that can be eliminated without understanding."""
+
+[study_seed_prompt]
+text = """
+The developer recently studied this file. During study, they asked these conceptual questions:
+
+{seed_questions}
+
+Generate up to {n} multiple choice questions that reinforce the developer's understanding of the concepts behind those questions.
+Each generated question should test whether they now grasp the concept that prompted their original question.
+
+
+Rephrase or expand the developer's framing to test the same concept from a sharper angle.
+If two of their questions point at the same concept, write one question for that concept rather than duplicating.
+Cover only concepts that appear in their questions; do not invent new topics.
+
+Make the wrong answer choices plausible — distractors should sound right to someone who half-understood the original answer."""
+
+[summary_prompt]
+text = """
+Write a short prose summary of this source file for a developer who will \
+study it before a conceptual quiz. Cover three things, in order, in 4-6 \
+sentences of plain prose (no headings, no bullet lists):
+
+1. The file's purpose — what it does and why it exists in the repo.
+2. The 2-3 most important functions, classes, or sections and what each is for.
+3. Any non-obvious design decisions or constraints a future reader should know.
+
+Focus on intent and design. Do not restate trivial details (imports, \
+docstrings, boilerplate). Do not grade the code. If the file is too small \
+or trivial to warrant all three parts, write a 1-2 sentence summary and stop."""

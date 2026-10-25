@@ -1,0 +1,41 @@
+name: Release
+
+# Cuts a GitHub Release + publishes to PyPI when a vX.Y.Z tag is pushed.
+# Builds the wheel + sdist, publishes to PyPI via Trusted Publishing (OIDC —
+# no API token stored), then attaches the artifacts to a GitHub Release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # required for gh release create
+  id-token: write   # required for PyPI Trusted Publishing (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Tests must pass before releasing
+        run: |
+          uv sync --frozen
+          uv run pytest tests/ -q
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes
