@@ -3,7 +3,7 @@
 import typer
 from dotenv import find_dotenv, load_dotenv
 
-from shikhu.commands.utils import console, ensure_api_key
+from shikhu.commands.utils import console, ensure_api_key, golden_target
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import init_db, insert_questions
 
@@ -28,7 +28,12 @@ def generate_from_study(
     file_path: str = typer.Argument(
         ..., help="File to generate questions for, seeded by questions you asked about it."
     ),
-    n: int = typer.Option(3, "--n", help="Number of questions to generate per seed source."),
+    n: int = typer.Option(
+        None,
+        "--n",
+        help="Questions to generate per seed source (default: the file's golden target, 1 for "
+        "short files and 3 otherwise).",
+    ),
 ):
     """Generate quiz questions for FILE_PATH seeded by the questions you asked about it.
 
@@ -42,6 +47,8 @@ def generate_from_study(
     # Stale older questions against the previous baseline before the new questions move it.
     mark_stale_questions()
     content_hash = compute_file_hash(file_path)
+    if n is None:
+        n = golden_target(file_path)
     from shikhu.store import get_requeueable_questions
 
     seeds = _seeds(file_path, unconsumed=True)

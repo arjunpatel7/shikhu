@@ -18,13 +18,14 @@ from rich.table import Table
 from shikhu import systemone
 from shikhu.commands.inquiry import load_summaries
 from shikhu.commands.utils import (
-    COVERED_THRESHOLD,
     DEFAULT_EXTENSIONS,
     console,
     ensure_api_key,
     get_trackable_files,
+    golden_target,
 )
 from shikhu.inquiry import MAP_ALGO_VERSION, past_question_bar, score_past_prompt
+from shikhu.staleness import mark_stale_questions
 from shikhu.store import (
     add_past_prompts,
     count_past_prompts,
@@ -112,7 +113,7 @@ def _score_all(
     return scored, failed, capped
 
 
-def _start_here(lead: dict[str, int], golden: dict[str, int]) -> str | None:
+def _start_here(lead: dict[str, int], golden: dict[str, int], target: dict[str, int]) -> str | None:
     """One easy file to begin with: among the files your questions were mainly about, the
     shortest one that isn't covered yet, preferring files with no goldens at all.
 
@@ -127,7 +128,7 @@ def _start_here(lead: dict[str, int], golden: dict[str, int]) -> str | None:
     bar = lead[asked[max(1, (len(asked) + 1) // 2) - 1]]
     top = [f for f in asked if lead[f] >= bar]
     pool = [f for f in top if golden.get(f, 0) == 0] or [
-        f for f in top if golden.get(f, 0) < COVERED_THRESHOLD
+        f for f in top if golden.get(f, 0) < target[f]
     ]
     if not pool:
         return None
@@ -140,7 +141,8 @@ def _draw(tracked: list[str], prompt_counts: dict) -> None:
     per_file = {f: n for f, n in per_file.items() if f in tracked_set}
     lead = {f: n for f, n in lead.items() if f in tracked_set}
     golden = get_golden_counts()
-    covered = sum(1 for f in tracked if golden.get(f, 0) >= COVERED_THRESHOLD)
+    target = {f: golden_target(f) for f in tracked}
+    covered = sum(1 for f in tracked if golden.get(f, 0) >= target[f])
     pct = covered / len(tracked) * 100 if tracked else 0
 
     console.print()
@@ -165,7 +167,7 @@ def _draw(tracked: list[str], prompt_counts: dict) -> None:
     table.add_column("questions", justify="right")
     table.add_column("golden", justify="right")
     for f in sorted(per_file, key=lambda f: (-per_file[f], f))[:TOP_N]:
-        table.add_row(f"  {f}", str(per_file[f]), f"{golden.get(f, 0)}/{COVERED_THRESHOLD}")
+        table.add_row(f"  {f}", str(per_file[f]), f"{golden.get(f, 0)}/{target[f]}")
     console.print()
     console.print(table)
 
@@ -180,14 +182,14 @@ def _draw(tracked: list[str], prompt_counts: dict) -> None:
         for f in sorted(never, key=lambda f: (-sizes[f], f))[:5]:
             console.print(f"  {f}  [dim]({sizes[f]} lines)[/dim]")
 
-    pick = _start_here(lead, golden)
+    pick = _start_here(lead, golden, target)
     if pick:
         n, g = lead[pick], golden.get(pick, 0)
         console.print()
         console.print(f"[bold green]Start here:[/bold green] [bold]{pick}[/bold]")
         console.print(
             f"  {n} of your questions {'was' if n == 1 else 'were'} mainly about it, it has "
-            f"{g}/{COVERED_THRESHOLD} golden, and it's {_line_count(pick)} lines. "
+            f"{g}/{target[pick]} golden, and it's {_line_count(pick)} lines. "
             "Ask about it with [bold]/shikhu-inquiry[/bold]."
         )
         if get_past_question_seeds(pick, **past_question_bar()):
@@ -218,6 +220,8 @@ def map_(
     questions about the code and which files they were about. Asks before spending."""
     load_dotenv(find_dotenv(usecwd=True))
     init_db()
+    # Local and free, as in coverage and quiz: an edited file's goldens shouldn't still count.
+    mark_stale_questions()
 
     # Tiny files are dropped before scoring as well as from the map: no point paying to
     # score a file the map won't show.
