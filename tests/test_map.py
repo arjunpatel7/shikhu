@@ -331,3 +331,19 @@ def test_no_summaries(monkeypatch):
     result = runner.invoke(app, ["map"])
     assert result.exit_code == 1
     assert "shikhu summarize" in result.output
+
+
+def test_map_does_not_count_goldens_on_edited_files(repo):
+    from shikhu.staleness import compute_file_hash
+
+    _map(repo, "--yes")
+    (qid,) = store.insert_questions(
+        "small.py",
+        [{"question_text": "q", "choices": ["A", "B"], "expected_answer": "A"}],
+        prompt_version="v1",
+        content_hash=compute_file_hash("small.py"),
+    )
+    store.mark_golden(qid)
+    assert "1/4 files fully covered" in _map(repo).output
+    (repo["root"] / "small.py").write_text("y = 2\n" * 10)  # edited since the golden was earned
+    assert "0/4 files fully covered" in _map(repo).output

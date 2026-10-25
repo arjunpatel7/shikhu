@@ -8,11 +8,14 @@ from shikhu.commands.utils import (
     COVERED_THRESHOLD,
     DEFAULT_EXTENSIONS,
     LARGE_CHANGE_LINES,
+    SMALL_FILE_LINES,
+    SMALL_FILE_TARGET,
     branch_start,
     changed_files,
     changed_line_counts,
     console,
     get_trackable_files,
+    golden_target,
 )
 from shikhu.staleness import mark_stale_questions
 from shikhu.store import get_golden_counts, init_db
@@ -33,7 +36,11 @@ def coverage(
     min_golden: int = typer.Option(
         None,
         "--min",
-        help=f"Golden questions a file needs to count as covered (default {COVERED_THRESHOLD}, or 1 with --check).",
+        help=(
+            f"Golden questions every file needs to count as covered. Default: each file's own target, "
+            f"{SMALL_FILE_TARGET} under {SMALL_FILE_LINES} non-blank lines and {COVERED_THRESHOLD} otherwise "
+            "(1 with --check)."
+        ),
     ),
 ):
     """Print a knowledge-coverage report."""
@@ -41,7 +48,8 @@ def coverage(
     init_db()
     # Local and free: a file edited since the last refresh shouldn't still read as covered.
     mark_stale_questions()
-    target = min_golden if min_golden is not None else (1 if check else COVERED_THRESHOLD)
+    # One bar for every file when asked for (--min, or 1 for --check); otherwise each file's own.
+    override = min_golden if min_golden is not None else (1 if check else None)
 
     if since:
         trackable = changed_files(since, extensions)
@@ -64,6 +72,7 @@ def coverage(
         if large:
             new_golden = get_golden_counts(created_since=branch_start(since))
             golden_map = {**golden_map, **{f: new_golden.get(f, 0) for f in large}}
+    target = {f: override if override is not None else golden_target(f) for f in trackable}
 
     fully_covered = []
     partial = []
@@ -71,7 +80,7 @@ def coverage(
 
     for f in trackable:
         golden = golden_map.get(f, 0)
-        if golden >= target:
+        if golden >= target[f]:
             fully_covered.append((f, golden))
         elif golden > 0:
             partial.append((f, golden))
@@ -98,12 +107,12 @@ def coverage(
     # Files already at threshold drop out — nothing to study there.
     if queue > 0:
         candidates = sorted(
-            ((f, golden_map.get(f, 0)) for f in trackable if golden_map.get(f, 0) < target),
+            ((f, golden_map.get(f, 0)) for f in trackable if golden_map.get(f, 0) < target[f]),
             key=lambda fg: (fg[1], fg[0]),
         )[:queue]
         if candidates:
             body = "\n".join(
-                f"  [bold]{i}.[/bold] {f}  [dim]({n}/{target} golden)[/dim]"
+                f"  [bold]{i}.[/bold] {f}  [dim]({n}/{target[f]} golden)[/dim]"
                 for i, (f, n) in enumerate(candidates, 1)
             )
             console.print()
@@ -126,12 +135,12 @@ def coverage(
         table.add_column("Progress", width=20)
 
         for f, n in sorted(fully_covered):
-            bar = _progress_str(n, target)
-            table.add_row(f, f"[green]{n}/{target}[/green]", bar)
+            bar = _progress_str(n, target[f])
+            table.add_row(f, f"[green]{n}/{target[f]}[/green]", bar)
 
         for f, n in sorted(partial, key=lambda x: x[1], reverse=True):
-            bar = _progress_str(n, target)
-            table.add_row(f, f"[yellow]{n}/{target}[/yellow]", bar)
+            bar = _progress_str(n, target[f])
+            table.add_row(f, f"[yellow]{n}/{target[f]}[/yellow]", bar)
 
         console.print()
         console.print(table)
@@ -154,11 +163,11 @@ def coverage(
     print_update_nudge()
 
     if check:
-        needs_review = sorted(f for f in trackable if golden_map.get(f, 0) < target)
+        needs_review = sorted(f for f in trackable if golden_map.get(f, 0) < target[f])
         if needs_review:
             scope = f" --since {since}" if since else ""
             console.print(
-                f"[red]x[/red] {len(needs_review)} file(s) below {target} fresh golden question(s)."
+                f"[red]x[/red] {len(needs_review)} file(s) below {override} fresh golden question(s)."
             )
             if set(needs_review) - set(large):
                 console.print(
@@ -172,7 +181,7 @@ def coverage(
                 )
             raise typer.Exit(code=1)
         console.print(
-            f"[green]>[/green] All files have at least {target} fresh golden question(s)."
+            f"[green]>[/green] All files have at least {override} fresh golden question(s)."
         )
 
 

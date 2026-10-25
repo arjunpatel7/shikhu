@@ -76,7 +76,7 @@ Your question map
 Asked about most
   file                   questions  golden
   src/app/store.py               4     0/3
-  src/app/cli.py                 3     0/3
+  src/app/cli.py                 3     0/1
   src/app/generator.py           2     0/3
 
 Not asked about yet (13 files, largest first — worth a look later)
@@ -132,7 +132,7 @@ shikhu coverage
 ╰────────────────────────── 4% complete ─────────────────────────────╯
 ```
 
-*(Illustrative output.)* A file counts as fully covered once it has **3 golden questions**. Until then it shows as *in progress*, and its `n/3 golden` count in the study queue ticks up with each golden. The headline number moves one file at a time, so it's a slow, honest climb.
+*(Illustrative output.)* A file counts as fully covered once it reaches its golden target: **3 golden questions**, or **1** for short files (under 75 non-blank lines), which run out of distinct things to ask sooner. Until then it shows as *in progress*, and its `n/target golden` count in the study queue ticks up with each golden. The headline number moves one file at a time, so it's a slow, honest climb.
 
 ## Other ways in
 
@@ -172,7 +172,7 @@ shikhu coverage --since main --check   # exit 1 if a changed file has no fresh g
 
 ## Concepts
 
-- **Golden questions:** a question you answered correctly, rated good, and confirmed tests real understanding of the file. Three per file = fully covered.
+- **Golden questions:** a question you answered correctly, rated good, and confirmed tests real understanding of the file. Three per file = fully covered, or one for short files (under 75 non-blank lines). `refresh` and `generate-from-study` only generate toward that target, so short files don't pile up near-duplicate questions.
 - **Cross-file questions:** a question that spans several files is quizzed once and credits each file it touches, so one good question can move more than one file.
 - **Questions are used once:** each question you ask seeds one quiz question. Ask it again and the existing question is re-queued to the front of your next quiz, not duplicated.
 - **Staleness:** when a file changes (detected via SHA-256 hashing), its questions are marked stale on the next `refresh`, `quiz` or `coverage`. Stale questions stay in the database (nothing is deleted) and `refresh` generates a fresh batch on top.
