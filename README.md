@@ -236,7 +236,7 @@ deprecated/
 |----------|----------|---------|
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API for question and summary generation |
 | `SHIKHU_JEV_BUDGET_USD` | No | Spending cap for Jev calls per command run (default `1.00`). `shikhu map` stops at the cap, keeps what it scored, and picks up where it left off next run. |
-| `SHIKHU_MODEL` | No | **Experimental, unsupported.** Override the OpenRouter model id (default `inception/mercury-2.5`). The model must support structured outputs; reasoning models may fail with truncated responses. |
+| `SHIKHU_MODEL` | No | **Experimental, unsupported.** Override the OpenRouter model id (default `inception/mercury-3`). The model must support structured outputs; reasoning models may fail with truncated responses. |
 
 ## Tech
 

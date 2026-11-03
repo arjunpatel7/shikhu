@@ -23,7 +23,7 @@ from shikhu.store import read_file_lines
 load_dotenv(find_dotenv(usecwd=True))
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "inception/mercury-2.5"
+DEFAULT_MODEL = "inception/mercury-3"
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
 # Auth, app attribution (APP_URL/APP_TITLE/APP_CATEGORIES) and the shared error shape
