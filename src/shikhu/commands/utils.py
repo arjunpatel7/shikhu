@@ -111,6 +111,23 @@ def branch_start(base: str) -> int:
     return int(fork[0]) if fork else 0
 
 
+MAX_DIFF_LINES = 400  # keeps the writer's prompt bounded on a rewrite
+
+
+def file_diff(base: str, path: str) -> str:
+    """What this branch changed in `path` since it left `base`, as a unified diff.
+
+    Measured from the merge base and including uncommitted edits, like changed_line_counts.
+    Empty when the file hasn't changed."""
+    merge_base = _git_lines("merge-base", base, "HEAD")
+    if not merge_base:
+        return ""
+    lines = _git_lines("diff", "--no-renames", merge_base[0], "--", path)
+    if len(lines) > MAX_DIFF_LINES:
+        lines = [*lines[:MAX_DIFF_LINES], f"... ({len(lines) - MAX_DIFF_LINES} more lines)"]
+    return "\n".join(lines)
+
+
 def get_trackable_files(
     extensions: str = DEFAULT_EXTENSIONS,
     quizignore_path: Path | None = None,

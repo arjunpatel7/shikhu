@@ -209,7 +209,7 @@ def test_only_the_past_batch_is_flagged_past(tmp_path, monkeypatch):
     _past("why is a cached?", {"a.py": 0.9})
     flags = []
 
-    def fake_gen(file_path, num_questions=3, seeds=None, past=False):
+    def fake_gen(file_path, num_questions=3, seeds=None, past=False, **kw):
         flags.append(past)
         return _quiz(), {"completion_tokens": 1, "elapsed": 0.1}, [s["id"] for s in seeds], []
 

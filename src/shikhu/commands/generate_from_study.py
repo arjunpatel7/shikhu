@@ -3,7 +3,7 @@
 import typer
 from dotenv import find_dotenv, load_dotenv
 
-from shikhu.commands.utils import console, ensure_api_key, golden_target
+from shikhu.commands.utils import changed_files, console, ensure_api_key, file_diff, golden_target
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import init_db, insert_questions
 
@@ -33,6 +33,12 @@ def generate_from_study(
         "--n",
         help="Questions to generate per seed source (default: the file's golden target, 1 for "
         "short files and 3 otherwise).",
+    ),
+    since: str = typer.Option(
+        None,
+        "--since",
+        help="Aim the questions at what this branch changed in the file since this git ref "
+        "(e.g. main).",
     ),
 ):
     """Generate quiz questions for FILE_PATH seeded by the questions you asked about it.
@@ -71,9 +77,12 @@ def generate_from_study(
         q["id"]: f"{q['question_text']} (answer: {q['expected_answer']})"
         for q in get_requeueable_questions(file_path)
     }
+    diff = file_diff(since, file_path) if since and file_path in changed_files(since) else ""
+    if since and not diff:
+        console.print(f"[dim]{file_path} hasn't changed since {since}; using the whole file.[/dim]")
     for source, batch in seeds.items():
         if batch:
-            _generate(file_path, source, batch, n, content_hash, open_questions)
+            _generate(file_path, source, batch, n, content_hash, open_questions, diff)
 
 
 def _generate(
@@ -83,6 +92,7 @@ def _generate(
     n: int,
     content_hash: str | None,
     open_questions: dict[int, str],
+    diff: str = "",
 ) -> None:
     """Re-queue the seeds that match an open question, then generate from the rest."""
     from shikhu.generator import PROMPT_VERSION, _quiz_to_rows, generate_questions_from_study_seeds
@@ -123,7 +133,7 @@ def _generate(
 
     try:
         result = generate_questions_from_study_seeds(
-            file_path, num_questions=n, seeds=fresh, past=source == PAST
+            file_path, num_questions=n, seeds=fresh, past=source == PAST, diff=diff
         )
     except RuntimeError as e:  # API errors, and an answer cut off twice
         console.print(f"[yellow]Generation failed: {e}. Nothing was saved; try again.[/yellow]")
