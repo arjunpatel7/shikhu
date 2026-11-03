@@ -148,3 +148,34 @@ def get_trackable_files(
         all_files = [f for f in all_files if not _ignored(f, patterns)]
 
     return all_files
+
+
+def no_trackable_files_hint(extensions: str = DEFAULT_EXTENSIONS) -> str:
+    """Why get_trackable_files() found nothing, and what to do about it."""
+    if not _git_lines("rev-parse", "--is-inside-work-tree"):
+        return (
+            "No trackable files: this folder isn't a git repository. shikhu reads the files git "
+            "knows about, so run it inside your repo (or `git init` and `git add` your code)."
+        )
+    ext_set = set(extensions.split(","))
+
+    def matching(*args: str) -> list[str]:
+        return [f for f in _git_lines("ls-files", *args) if any(f.endswith(e) for e in ext_set)]
+
+    # Files git tracks with a matching extension, yet none survived: .quizignore removed them all.
+    tracked = matching()
+    if tracked:
+        return (
+            f"No trackable files: all {len(tracked)} matching file(s) are excluded by .quizignore. "
+            "Remove or narrow its patterns to include them."
+        )
+    untracked = matching("--others", "--exclude-standard")
+    if untracked:
+        return (
+            f"No trackable files: {len(untracked)} file(s) like {untracked[0]} aren't committed or "
+            "staged yet. shikhu reads committed and staged files, so `git add` them first."
+        )
+    return (
+        f"No trackable files: nothing in git ends in {extensions.replace(',', ', ')}. "
+        "For other languages, pass them with --extensions, e.g. --extensions .go,.rs"
+    )

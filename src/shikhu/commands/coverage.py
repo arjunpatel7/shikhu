@@ -16,6 +16,7 @@ from shikhu.commands.utils import (
     console,
     get_trackable_files,
     golden_target,
+    no_trackable_files_hint,
 )
 from shikhu.staleness import mark_stale_questions
 from shikhu.store import get_golden_counts, init_db
@@ -59,7 +60,7 @@ def coverage(
     else:
         trackable = get_trackable_files(extensions)
         if not trackable:
-            console.print("No trackable files found.")
+            console.print(no_trackable_files_hint(extensions))
             return
 
     golden_map = get_golden_counts()
