@@ -295,3 +295,22 @@ def test_plain_coverage_counts_old_goldens(branch):
     assert runner.invoke(app, ["coverage", "--check"]).exit_code == 1  # small.py has none
     _golden_created("small.py", "2025-12-31 00:00:00")
     assert runner.invoke(app, ["coverage", "--check"]).exit_code == 0
+
+
+def test_quiz_since_serves_a_branch_question_for_big_changes_before_rechecks(branch):
+    """Re-checks used to fill every slot, so the question the gate needs never came up."""
+    q = {"question_text": "", "choices": ["A", "B", "C", "D"], "expected_answer": "A"}
+    [old] = store.insert_questions("small.py", [{**q, "question_text": "OLD re-check"}])
+    [new] = store.insert_questions("big.py", [{**q, "question_text": "NEW on the branch"}])
+    conn = store._get_conn()
+    conn.execute(
+        "UPDATE questions SET golden = TRUE, pending_revalidation = TRUE WHERE id = ?", (old,)
+    )
+    conn.execute("UPDATE questions SET created_at = '2026-01-01 12:00:00' WHERE id = ?", (new,))
+    conn.commit()
+    conn.close()
+
+    with patch("shikhu.commands.quiz.mark_stale_questions"):
+        result = runner.invoke(app, ["quiz", "--since", "main", "--n", "1"], input="a\ns\n")
+    assert "NEW on the branch" in result.output
+    assert "OLD re-check" not in result.output

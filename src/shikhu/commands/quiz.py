@@ -7,7 +7,14 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 
-from shikhu.commands.utils import changed_files, console, get_trackable_files
+from shikhu.commands.utils import (
+    LARGE_CHANGE_LINES,
+    branch_start,
+    changed_files,
+    changed_line_counts,
+    console,
+    get_trackable_files,
+)
 from shikhu.staleness import mark_stale_questions
 from shikhu.store import (
     discard_revalidation,
@@ -122,10 +129,21 @@ def quiz(
             console.print(f"\nNo changed trackable files since [bold]{since}[/bold].\n")
             return
 
-    # Re-validation questions (goldens whose file changed) come first, then fresh ones.
-    questions = get_revalidation_questions(limit=n, file_paths=scope)
-    if len(questions) < n:
-        questions += get_unasked_questions(limit=n - len(questions), file_paths=scope)
+    questions: list[dict] = []
+    if since:
+        # For a file changed a lot, the push gate only counts questions written since the branch
+        # started, so one of those comes first: otherwise re-checks can fill every slot.
+        lines, start = changed_line_counts(since), branch_start(since)
+        for path in scope or []:
+            if lines.get(path, 0) > LARGE_CHANGE_LINES and len(questions) < n:
+                new = get_unasked_questions(limit=1, file_paths=[path], created_since=start)
+                questions += [q for q in new if q["id"] not in {x["id"] for x in questions}]
+    # Then re-validation questions (goldens whose file changed), then fresh ones.
+    for pick in (get_revalidation_questions, get_unasked_questions):
+        if len(questions) < n:
+            seen = {q["id"] for q in questions}
+            more = pick(limit=n, file_paths=scope)
+            questions += [q for q in more if q["id"] not in seen][: n - len(questions)]
 
     if not questions:
         console.print()
