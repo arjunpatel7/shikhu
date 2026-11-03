@@ -158,11 +158,18 @@ def no_trackable_files_hint(extensions: str = DEFAULT_EXTENSIONS) -> str:
             "knows about, so run it inside your repo (or `git init` and `git add` your code)."
         )
     ext_set = set(extensions.split(","))
-    untracked = [
-        f
-        for f in _git_lines("ls-files", "--others", "--exclude-standard")
-        if any(f.endswith(ext) for ext in ext_set)
-    ]
+
+    def matching(*args: str) -> list[str]:
+        return [f for f in _git_lines("ls-files", *args) if any(f.endswith(e) for e in ext_set)]
+
+    # Files git tracks with a matching extension, yet none survived: .quizignore removed them all.
+    tracked = matching()
+    if tracked:
+        return (
+            f"No trackable files: all {len(tracked)} matching file(s) are excluded by .quizignore. "
+            "Remove or narrow its patterns to include them."
+        )
+    untracked = matching("--others", "--exclude-standard")
     if untracked:
         return (
             f"No trackable files: {len(untracked)} file(s) like {untracked[0]} aren't committed or "

@@ -26,6 +26,15 @@ def test_files_not_added_yet(tmp_path, monkeypatch):
     assert "git add" in hint
 
 
+def test_everything_excluded_by_quizignore(tmp_path, monkeypatch):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / ".quizignore").write_text("*.py\n")
+    _git(tmp_path, "add", "a.py")
+    monkeypatch.chdir(tmp_path)
+    assert "all 1 matching file(s) are excluded by .quizignore" in no_trackable_files_hint()
+
+
 def test_no_files_with_these_extensions(tmp_path, monkeypatch):
     _git(tmp_path, "init", "-q")
     (tmp_path / "main.go").write_text("package main\n")
