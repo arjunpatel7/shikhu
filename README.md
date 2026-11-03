@@ -15,7 +15,7 @@ Think test coverage, but for your brain!
 ## Getting Started
 
 Prerequisites:
-- An **OpenRouter API key** (required). Shikhu calls models through [OpenRouter](https://openrouter.ai/); by default it uses Inception's fast Mercury 2.5 diffusion model for question generation and summarization. Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+- An **OpenRouter API key** (required). Shikhu calls models through [OpenRouter](https://openrouter.ai/); by default it uses Inception's fast Mercury 3 diffusion model for question generation and summarization. Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
 - A **skill-compatible coding agent** like Claude Code, Codex, or Cursor (strongly recommended). The core loop — `refresh`, `quiz`, `coverage` — runs entirely in your terminal, but Shikhu really shines when paired with its skills (installed in step 2): `/shikhu-inquiry` banks the questions you ask about your code, and `/shikhu-study` turns "I don't get this file" into a guided walkthrough, *and* both feed your weak spots back into future quizzes.
 
 ### 1. Install
@@ -212,7 +212,7 @@ The skills call a few more commands behind the scenes. You normally won't run th
 
 Everything Shikhu knows lives in one local SQLite file, `coverage.db`, in the repo you run it from. Nothing is uploaded anywhere. Four things are worth knowing:
 
-- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 2.5), to generate questions and summaries — that, plus the past prompts `shikhu map` scores (below), is the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
+- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 3), to generate questions and summaries — that, plus the past prompts `shikhu map` scores (below), is the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
 - **Requests identify shikhu to OpenRouter** by name and repo URL ([app attribution](https://openrouter.ai/docs/app-attribution)), which is what lists shikhu on OpenRouter's public app rankings. Only the app name and URL are sent; nothing about you, your key, or your code.
 - **Shikhu reads your local Claude Code transcripts** for the current project (`~/.claude/projects/...`) when you run `shikhu map`, to find conceptual questions you've asked, and stores them in `coverage.db` to seed better quiz questions. Apart from `shikhu map` (below), these prompts never leave your machine — but it's one more reason `coverage.db` must stay out of git. `shikhu init` adds it to your `.gitignore` automatically.
 - **`shikhu map` sends your past prompts to OpenRouter** for Jev to score: each prompt, the end of the assistant reply it followed, and your file summaries. It shows the cost and asks before sending anything, and `--dry-run` sends nothing.
@@ -241,7 +241,7 @@ deprecated/
 ## Tech
 
 - Python 3.12+, managed with [uv](https://docs.astral.sh/uv/)
-- [OpenRouter](https://openrouter.ai/) + [Mercury 2.5](https://www.inceptionlabs.ai/) (default model) for question generation
+- [OpenRouter](https://openrouter.ai/) + [Mercury 3](https://www.inceptionlabs.ai/) (default model) for question generation
 - [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) for the CLI
 - SQLite for local storage
 - SHA-256 file hashing for staleness detection
