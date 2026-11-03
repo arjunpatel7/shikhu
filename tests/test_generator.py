@@ -88,7 +88,7 @@ def test_quiz_request_shape(monkeypatch):
     payload = post.call_args.kwargs["json"]
     assert url == "https://openrouter.ai/api/v1/chat/completions"
     assert headers["Authorization"] == "Bearer test-key"
-    assert payload["model"] == "inception/mercury-2.5"
+    assert payload["model"] == "inception/mercury-3"
     assert payload["messages"] == [{"role": "user", "content": "prompt"}]
     assert payload["response_format"]["type"] == "json_schema"
     assert payload["response_format"]["json_schema"]["strict"] is True

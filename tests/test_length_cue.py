@@ -88,6 +88,24 @@ def test_when_the_retry_is_no_better_the_first_attempt_is_kept():
     assert [r["length_cue"] for r in _quiz_to_rows(quiz)] == [True]  # still flagged for counting
 
 
+@pytest.mark.parametrize("failure", ["cut off", "empty"])
+def test_a_failed_retry_keeps_the_first_attempt(failure):
+    """Mercury 2.5 sometimes answers the retry with an empty or cut-off reply (2026-11-02)."""
+    calls = []
+
+    def fake(prompt):
+        calls.append(prompt)
+        if len(calls) == 1:
+            return _quiz(CUED), {"elapsed": 1.0}
+        if failure == "cut off":
+            raise generator.TruncatedResponse("hit max_tokens")
+        return Quiz.model_validate_json(""), {}
+
+    with patch.object(generator, "generate_quiz", fake):
+        quiz, stats = generator._generate_checked("prompt")
+    assert len(calls) == 2 and quiz.questions == [CUED] and stats == {"elapsed": 1.0}
+
+
 def test_a_retry_with_fewer_cues_wins_even_if_not_clean():
     two = _quiz(CUED, CUED)
     one = _quiz(CUED, EVEN)
@@ -97,7 +115,7 @@ def test_a_retry_with_fewer_cues_wins_even_if_not_clean():
     assert quiz is one
 
 
-def test_the_length_rule_is_in_both_generation_prompts(tmp_path, monkeypatch):
+def test_the_choice_rules_are_in_both_generation_prompts(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "a.py").write_text("X = 1\n")
     seen = []
@@ -111,7 +129,9 @@ def test_the_length_rule_is_in_both_generation_prompts(tmp_path, monkeypatch):
     with patch.object(generator, "generate_quiz", capture):
         generator.generate_question_from_file("a.py")
         generator.generate_questions_from_study_seeds("a.py")
-    assert len(seen) == 2 and all(generator.CHOICE_LENGTH_RULE in p for p in seen)
+    assert len(seen) == 2
+    for rule in (generator.CHOICE_LENGTH_RULE, generator.ONE_TRUE_ANSWER_RULE):
+        assert all(rule in p for p in seen)
 
 
 def test_the_flag_is_stored_with_the_question():
