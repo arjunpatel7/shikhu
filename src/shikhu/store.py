@@ -438,13 +438,19 @@ def _paths_filter(file_paths: list[str] | None) -> tuple[str, tuple]:
     )
 
 
-def get_unasked_questions(limit: int = 10, file_paths: list[str] | None = None) -> list[dict]:
+def get_unasked_questions(
+    limit: int = 10, file_paths: list[str] | None = None, created_since: int | None = None
+) -> list[dict]:
     """Get unasked questions, optionally restricted to file_paths.
 
     A single file returns its questions in biased order; otherwise one biased-random
-    question per file is picked, then biased-shuffled across files and limited."""
+    question per file is picked, then biased-shuffled across files and limited. With
+    created_since (unix time), only questions created at or after it."""
     cols = "id, file_path, question_text, choices, expected_answer, line_start, line_end, seed_query_ids, seed_query_source"
     scope, params = _paths_filter(file_paths)
+    if created_since is not None:
+        scope += " AND CAST(strftime('%s', created_at) AS INTEGER) >= ?"
+        params = (*params, created_since)
     with _conn() as conn:
         if file_paths is not None and len(file_paths) == 1:
             rows = conn.execute(
