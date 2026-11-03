@@ -165,6 +165,19 @@ CHOICE_LENGTH_RULE = (
     "should not be able to find it by length alone."
 )
 
+# Asking for distractors that "sound right" got options that were other true facets of the same
+# design: in 5 of 6 questions on lifecycle.py (Oct 25), two choices were defensible, or a "why"
+# keyed a side benefit the comments mention instead of the reason the change was made.
+ONE_TRUE_ANSWER_RULE = (
+    "Exactly one choice may be true. Every wrong choice must be false of the code shown, not "
+    "merely incomplete, less precise, or a different true aspect of the same thing. If two "
+    "choices could both be defended, rewrite one until it is clearly false. For a question about "
+    "why something was done, key only a reason the code or its comments give as the reason; a "
+    "side benefit is not the reason. If the code doesn't say why, ask instead what happens in a "
+    "concrete situation (a call with certain inputs, a file that changes, a step that fails), "
+    "which has one answer you can check against the code."
+)
+
 CHOICE_LENGTH_RETRY = (
     "Your previous attempt made the correct choice noticeably longer than the wrong ones. "
     "Rewrite the wrong choices so each is as long and as detailed as the correct one, while "
@@ -223,6 +236,7 @@ def generate_question_from_file(file_path, num_questions: int = 5) -> tuple[Quiz
     prompt = (
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{FILE_PROMPT.format(n=num_questions)}\n\n"
+        f"{ONE_TRUE_ANSWER_RULE}\n\n"
         f"{CHOICE_LENGTH_RULE}\n\n"
         f"File: {context['file_path']}\n\n"
         f"{context['code']}"
@@ -293,6 +307,7 @@ def generate_questions_from_study_seeds(
         f"{STUDY_SEED_PROMPT.format(n=num_questions, seed_questions=seed_block)}\n\n"
         + (f"{PAST_SEED_RULE}\n\n" if past else "")
         + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
+        + f"{ONE_TRUE_ANSWER_RULE}\n\n"
         + f"{CHOICE_LENGTH_RULE}\n\n"
         + files_block
     )

@@ -97,7 +97,7 @@ def test_a_retry_with_fewer_cues_wins_even_if_not_clean():
     assert quiz is one
 
 
-def test_the_length_rule_is_in_both_generation_prompts(tmp_path, monkeypatch):
+def test_the_choice_rules_are_in_both_generation_prompts(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "a.py").write_text("X = 1\n")
     seen = []
@@ -111,7 +111,9 @@ def test_the_length_rule_is_in_both_generation_prompts(tmp_path, monkeypatch):
     with patch.object(generator, "generate_quiz", capture):
         generator.generate_question_from_file("a.py")
         generator.generate_questions_from_study_seeds("a.py")
-    assert len(seen) == 2 and all(generator.CHOICE_LENGTH_RULE in p for p in seen)
+    assert len(seen) == 2
+    for rule in (generator.CHOICE_LENGTH_RULE, generator.ONE_TRUE_ANSWER_RULE):
+        assert all(rule in p for p in seen)
 
 
 def test_the_flag_is_stored_with_the_question():
