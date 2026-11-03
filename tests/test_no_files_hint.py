@@ -1,0 +1,44 @@
+"""When no trackable files are found, the message says why and how to fix it."""
+
+import subprocess
+
+from conftest import runner
+
+from shikhu.cli import app
+from shikhu.commands.utils import no_trackable_files_hint
+
+
+def _git(cwd, *args):
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+def test_outside_a_git_repo(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert "isn't a git repository" in no_trackable_files_hint()
+
+
+def test_files_not_added_yet(tmp_path, monkeypatch):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "a.py").write_text("x = 1\n")
+    monkeypatch.chdir(tmp_path)
+    hint = no_trackable_files_hint()
+    assert "1 file(s) like a.py aren't committed or staged" in hint
+    assert "git add" in hint
+
+
+def test_no_files_with_these_extensions(tmp_path, monkeypatch):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "main.go").write_text("package main\n")
+    _git(tmp_path, "add", "main.go")
+    monkeypatch.chdir(tmp_path)
+    hint = no_trackable_files_hint(".py,.js")
+    assert "nothing in git ends in .py, .js" in hint
+    assert "--extensions" in hint
+
+
+def test_coverage_prints_the_hint(tmp_path, monkeypatch):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "a.py").write_text("x = 1\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["coverage"])
+    assert "aren't committed or staged" in result.output

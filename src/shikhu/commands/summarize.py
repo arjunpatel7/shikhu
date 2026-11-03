@@ -6,7 +6,13 @@ from pathlib import Path
 import typer
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from shikhu.commands.utils import SUMMARY_EXTENSIONS, console, ensure_api_key, get_trackable_files
+from shikhu.commands.utils import (
+    SUMMARY_EXTENSIONS,
+    console,
+    ensure_api_key,
+    get_trackable_files,
+    no_trackable_files_hint,
+)
 from shikhu.generator import PROMPT_VERSION, generate_summary
 from shikhu.staleness import compute_file_hash
 from shikhu.store import get_summary, init_db, upsert_summary
@@ -76,7 +82,7 @@ def summarize(
         force = False
 
     if not targets:
-        console.print("[dim]No trackable files found.[/dim]")
+        console.print(no_trackable_files_hint(extensions))
         return
 
     generated, fresh, missing, errors = 0, 0, 0, 0
