@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 from dotenv import find_dotenv, load_dotenv
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from shikhu.openrouter import (
     ERROR_SNIPPET,
@@ -195,14 +195,18 @@ def length_cue(q: MCQuestion) -> bool:
 def _generate_checked(prompt: str) -> tuple[Quiz, dict]:
     """generate_quiz, retried once if any question's key is the obvious longest choice.
 
-    Keeps whichever attempt has fewer such questions (the first on a tie); anything that still
+    Keeps whichever attempt has fewer such questions (the first on a tie, or if the retry comes
+    back cut off or unparseable); anything that still
     has the cue is flagged by _quiz_to_rows so it can be counted. Elapsed time and cost cover
     both attempts."""
     quiz, stats = generate_quiz(prompt)
     cues = sum(length_cue(q) for q in quiz.questions)
     if not cues:
         return quiz, stats
-    retry, retry_stats = generate_quiz(f"{prompt}\n\n{CHOICE_LENGTH_RETRY}")
+    try:
+        retry, retry_stats = generate_quiz(f"{prompt}\n\n{CHOICE_LENGTH_RETRY}")
+    except (TruncatedResponse, ValidationError):  # the retry is optional; keep what we have
+        return quiz, stats
     if sum(length_cue(q) for q in retry.questions) < cues:
         quiz, kept, other = retry, retry_stats, stats
     else:

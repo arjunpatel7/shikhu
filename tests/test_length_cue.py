@@ -88,6 +88,24 @@ def test_when_the_retry_is_no_better_the_first_attempt_is_kept():
     assert [r["length_cue"] for r in _quiz_to_rows(quiz)] == [True]  # still flagged for counting
 
 
+@pytest.mark.parametrize("failure", ["cut off", "empty"])
+def test_a_failed_retry_keeps_the_first_attempt(failure):
+    """Mercury 2.5 sometimes answers the retry with an empty or cut-off reply (2026-11-02)."""
+    calls = []
+
+    def fake(prompt):
+        calls.append(prompt)
+        if len(calls) == 1:
+            return _quiz(CUED), {"elapsed": 1.0}
+        if failure == "cut off":
+            raise generator.TruncatedResponse("hit max_tokens")
+        return Quiz.model_validate_json(""), {}
+
+    with patch.object(generator, "generate_quiz", fake):
+        quiz, stats = generator._generate_checked("prompt")
+    assert len(calls) == 2 and quiz.questions == [CUED] and stats == {"elapsed": 1.0}
+
+
 def test_a_retry_with_fewer_cues_wins_even_if_not_clean():
     two = _quiz(CUED, CUED)
     one = _quiz(CUED, EVEN)
