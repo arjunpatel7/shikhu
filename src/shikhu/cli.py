@@ -9,6 +9,7 @@ from shikhu.commands.coverage import coverage
 from shikhu.commands.generate_from_study import generate_from_study
 from shikhu.commands.init import init
 from shikhu.commands.inquiry import inquiry_packet, record_inquiry
+from shikhu.commands.install_hook import install_hook
 from shikhu.commands.install_skill import install_skill
 from shikhu.commands.map import map_
 from shikhu.commands.quiz import quiz
@@ -37,6 +38,7 @@ def _main(
 
 app.command()(init)
 app.command("install-skill")(install_skill)
+app.command("install-hook")(install_hook)
 app.command()(quiz)
 app.command()(coverage)
 app.command("map")(map_)

@@ -1,11 +1,17 @@
 """shikhu init — set up database and config."""
 
 import os
-import sys
 from pathlib import Path
 
 import typer
 
+from shikhu.commands.install_hook import (
+    ask_mode,
+    in_git_repo,
+    install_hook_file,
+    interactive,
+    report,
+)
 from shikhu.commands.install_skill import install_skill_files
 from shikhu.commands.utils import console
 from shikhu.env import KEY_NAME, load_env, save_key
@@ -29,7 +35,7 @@ def init(
     init_db()
     console.print("  [green]>[/green] Database initialized")
 
-    if not os.environ.get(KEY_NAME) and _interactive():
+    if not os.environ.get(KEY_NAME) and interactive():
         _ask_for_key()
 
     if not os.environ.get(KEY_NAME):
@@ -56,17 +62,14 @@ def init(
         for dest in install_skill_files(Path.cwd()):
             console.print(f"  [green]>[/green] Installed /{dest.parent.name} skill → {dest}")
 
+    _offer_hook()
+
     console.print()
     console.print(
         "[bold green]Ready.[/bold green] Run [bold]shikhu summarize[/bold] to index your code, then "
         "[bold]shikhu map[/bold] to see where your questions have been."
     )
     console.print()
-
-
-def _interactive() -> bool:
-    """Only prompt when someone is at the keyboard, not in scripts or an agent's shell."""
-    return sys.stdin.isatty()
 
 
 def _ask_for_key() -> None:
@@ -89,6 +92,18 @@ def _ask_for_key() -> None:
     console.print(
         f"  [green]>[/green] Saved your key to {shown} (only you can read it; every repo uses it)"
     )
+
+
+def _offer_hook():
+    """Ask whether to gate pushes on understanding. Only when someone can answer, in a repo."""
+    if not interactive() or not in_git_repo():
+        console.print(
+            "  [dim]>[/dim] To check your understanding before each push: shikhu install-hook"
+        )
+        return
+    mode = ask_mode()
+    if mode:
+        report(*install_hook_file(mode), mode)
 
 
 def _ensure_gitignored():

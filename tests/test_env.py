@@ -46,7 +46,7 @@ def test_init_asks_for_the_key_once_and_saves_it(tmp_path, monkeypatch):
 
     _clear_key(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    with patch("shikhu.commands.init._interactive", return_value=True):
+    with patch("shikhu.commands.init.interactive", return_value=True):
         result = runner.invoke(app, ["init", "--no-skill"], input="sk-or-pasted\n")
 
     assert result.exit_code == 0
@@ -61,7 +61,7 @@ def test_init_enter_skips_the_key(tmp_path, monkeypatch):
 
     _clear_key(monkeypatch)
     monkeypatch.chdir(tmp_path)
-    with patch("shikhu.commands.init._interactive", return_value=True):
+    with patch("shikhu.commands.init.interactive", return_value=True):
         result = runner.invoke(app, ["init", "--no-skill"], input="\n")
 
     assert result.exit_code == 0
@@ -73,7 +73,7 @@ def test_init_does_not_ask_when_a_key_is_set(tmp_path, monkeypatch):
     from shikhu.cli import app
 
     monkeypatch.chdir(tmp_path)
-    with patch("shikhu.commands.init._interactive", return_value=True):
+    with patch("shikhu.commands.init.interactive", return_value=True):
         result = runner.invoke(app, ["init", "--no-skill"])
 
     assert "Paste it here" not in result.output
