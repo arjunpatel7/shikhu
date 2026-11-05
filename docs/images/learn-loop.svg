@@ -1,20 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 168" width="100%" role="img" aria-labelledby="title desc">
-  <title id="title">The Shikhu learn loop</title>
-  <desc id="desc">Ask your agent about your code, Shikhu writes questions from your code and your question, you take the quiz, and a right answer you rate good becomes a golden question that raises your knowledge coverage. Then ask more.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="100%" role="img" aria-labelledby="title desc">
+  <title id="title">What happens when you ask Shikhu's skill a question</title>
+  <desc id="desc">1. You ask your agent why save() writes to a temp file first; it answers from storage.py and you confirm, so the question is saved as a seed. 2. Shikhu sends your question, the whole file, and on a branch the diff, to Mercury 3, which writes a multiple-choice question. 3. You answer it in the terminal and rate it good, it becomes a golden question, and storage.py counts as covered. Editing the file later makes the golden stale until you re-check it.</desc>
   <style>
-    .lbl { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
-    .sub { font: 400 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
-    .note { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; fill: #5F5E5A; }
-    .gray rect { fill: #F1EFE8; stroke: #888780; } .gray .lbl { fill: #2C2C2A; } .gray .sub { fill: #5F5E5A; }
-    .teal rect { fill: #E1F5EE; stroke: #0F6E56; } .teal .lbl { fill: #04342C; } .teal .sub { fill: #0F6E56; }
-    .amber rect { fill: #FAEEDA; stroke: #854F0B; } .amber .lbl { fill: #412402; } .amber .sub { fill: #854F0B; }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .h { font-size: 14px; font-weight: 600; fill: #2C2C2A; }
+    .t { font-size: 12.5px; fill: #2C2C2A; }
+    .s { font-size: 12px; fill: #5F5E5A; }
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .panel { fill: none; stroke: #D3D1C7; stroke-dasharray: 4 4; }
+    .you { fill: #F1EFE8; stroke: #B4B2A9; }
+    .agent { fill: #FFFFFF; stroke: #B4B2A9; }
+    .teal { fill: #E1F5EE; stroke: #0F6E56; } .tealt { fill: #04342C; } .teals { fill: #0F6E56; }
+    .amber { fill: #FAEEDA; stroke: #854F0B; } .ambert { fill: #412402; } .ambers { fill: #854F0B; }
+    .card { fill: #FFFFFF; stroke: #888780; }
+    .ok { fill: #3B6D11; font-weight: 600; }
+    .bar { fill: #F1EFE8; } .fill { fill: #1D9E75; }
     .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
     .head { fill: #888780; }
     @media (prefers-color-scheme: dark) {
-      .gray rect { fill: #2C2C2A; stroke: #888780; } .gray .lbl { fill: #F1EFE8; } .gray .sub { fill: #B4B2A9; }
-      .teal rect { fill: #04342C; stroke: #5DCAA5; } .teal .lbl { fill: #E1F5EE; } .teal .sub { fill: #9FE1CB; }
-      .amber rect { fill: #412402; stroke: #EF9F27; } .amber .lbl { fill: #FAEEDA; } .amber .sub { fill: #FAC775; }
-      .note { fill: #B4B2A9; }
+      .h, .t { fill: #F1EFE8; } .s { fill: #B4B2A9; }
+      .panel { stroke: #5F5E5A; }
+      .you { fill: #2C2C2A; stroke: #5F5E5A; } .agent { fill: #1f1f1e; stroke: #5F5E5A; }
+      .teal { fill: #04342C; stroke: #5DCAA5; } .tealt { fill: #E1F5EE; } .teals { fill: #9FE1CB; }
+      .amber { fill: #412402; stroke: #EF9F27; } .ambert { fill: #FAEEDA; } .ambers { fill: #FAC775; }
+      .card { fill: #1f1f1e; stroke: #888780; } .ok { fill: #97C459; }
+      .bar { fill: #444441; } .fill { fill: #5DCAA5; }
     }
   </style>
   <defs>
@@ -23,31 +33,78 @@
     </marker>
   </defs>
 
-  <g class="gray">
-    <rect x="20" y="20" width="180" height="66" rx="10" stroke-width="1"/>
-    <text class="lbl" x="110" y="44">Ask your agent</text>
-    <text class="sub" x="110" y="66">about your code</text>
-  </g>
-  <g class="teal">
-    <rect x="230" y="20" width="180" height="66" rx="10" stroke-width="1"/>
-    <text class="lbl" x="320" y="44">Shikhu writes</text>
-    <text class="sub" x="320" y="66">questions from your code</text>
-  </g>
-  <g class="teal">
-    <rect x="440" y="20" width="180" height="66" rx="10" stroke-width="1"/>
-    <text class="lbl" x="530" y="44">shikhu quiz</text>
-    <text class="sub" x="530" y="66">about 20 s a question</text>
-  </g>
-  <g class="amber">
-    <rect x="650" y="20" width="180" height="66" rx="10" stroke-width="1"/>
-    <text class="lbl" x="740" y="44">Golden question</text>
-    <text class="sub" x="740" y="66">right, and rated good</text>
-  </g>
+  <!-- 1. Ask -->
+  <rect class="panel" x="8" y="8" width="284" height="384" rx="12"/>
+  <text class="h" x="24" y="34">1 · You ask your agent</text>
+  <rect class="you" x="24" y="50" width="252" height="48" rx="10"/>
+  <text class="t" x="38" y="70">"why does save() write to a</text>
+  <text class="t" x="38" y="87">temp file first?"</text>
+  <rect class="agent" x="24" y="110" width="252" height="86" rx="10"/>
+  <text class="t" x="38" y="131">It's storage.py:18: tmp.replace()</text>
+  <text class="t" x="38" y="148">is atomic, so a crash never leaves</text>
+  <text class="t" x="38" y="165">half a todos.json behind.</text>
+  <text class="s" x="38" y="185">Was that the right place to look?</text>
+  <rect class="you" x="216" y="206" width="60" height="30" rx="10"/>
+  <text class="t" x="232" y="226">yes</text>
+  <rect class="teal" x="24" y="300" width="252" height="56" rx="10"/>
+  <text class="t tealt" x="38" y="322" font-weight="600">Saved as a seed</text>
+  <text class="s teals" x="38" y="342">your question → storage.py</text>
+  <text class="s" x="24" y="268">/shikhu-inquiry records it</text>
+  <text class="s" x="24" y="284">(free, nothing sent yet)</text>
 
-  <line class="arr" x1="202" y1="53" x2="226" y2="53" marker-end="url(#a)"/>
-  <line class="arr" x1="412" y1="53" x2="436" y2="53" marker-end="url(#a)"/>
-  <line class="arr" x1="622" y1="53" x2="646" y2="53" marker-end="url(#a)"/>
+  <line class="arr" x1="278" y1="328" x2="318" y2="328" marker-end="url(#a)"/>
 
-  <path class="arr" d="M740 88 L740 128 L110 128 L110 92" marker-end="url(#a)"/>
-  <text class="note" x="425" y="150">Each golden question raises your knowledge coverage. Ask more, and it keeps growing.</text>
+  <!-- 2. Write -->
+  <rect class="panel" x="308" y="8" width="284" height="384" rx="12"/>
+  <text class="h" x="324" y="34">2 · Shikhu writes a question</text>
+  <rect class="teal" x="324" y="50" width="252" height="30" rx="8"/>
+  <text class="t tealt" x="338" y="70">your question</text>
+  <rect class="you" x="324" y="86" width="252" height="30" rx="8"/>
+  <text class="t" x="338" y="106">+ storage.py, the whole file</text>
+  <rect class="you" x="324" y="122" width="252" height="30" rx="8" stroke-dasharray="4 3"/>
+  <text class="t" x="338" y="142">+ the diff, when you're on a branch</text>
+  <line class="arr" x1="450" y1="154" x2="450" y2="170" marker-end="url(#a)"/>
+  <rect class="amber" x="324" y="172" width="252" height="32" rx="8"/>
+  <text class="t ambert" x="338" y="193" font-weight="600">Mercury 3 <tspan class="ambers" font-weight="400">writes it, one true answer</tspan></text>
+  <line class="arr" x1="450" y1="206" x2="450" y2="222" marker-end="url(#a)"/>
+  <rect class="card" x="324" y="224" width="252" height="134" rx="10"/>
+  <text class="t" x="338" y="245" font-weight="600">Why does save() write to a temp</text>
+  <text class="t" x="338" y="262" font-weight="600">file before replacing todos.json?</text>
+  <text class="t ok" x="338" y="286">A  so a crash can't corrupt it</text>
+  <text class="s" x="338" y="306">B  to buffer data for speed</text>
+  <text class="s" x="338" y="325">C  to detect a full disk first</text>
+  <text class="s" x="338" y="344">D  to touch the disk less often</text>
+
+  <line class="arr" x1="578" y1="290" x2="618" y2="290" marker-end="url(#a)"/>
+
+  <!-- 3. Quiz -->
+  <rect class="panel" x="608" y="8" width="284" height="384" rx="12"/>
+  <text class="h" x="624" y="34">3 · You quiz, coverage grows</text>
+  <rect x="624" y="50" width="252" height="78" rx="8" fill="#2C2C2A"/>
+  <text class="m" x="636" y="70" fill="#B4B2A9">$ shikhu quiz</text>
+  <text class="m" x="636" y="88" fill="#F1EFE8">Your answer: a  <tspan fill="#97C459">Correct!</tspan></text>
+  <text class="m" x="636" y="105" fill="#F1EFE8">Rate it (g/b/s): g</text>
+  <text class="m" x="636" y="121" fill="#FAC775">Golden question!</text>
+
+  <text class="t" x="624" y="156" font-weight="600">Knowledge coverage</text>
+  <text class="t" x="624" y="181">storage.py</text>
+  <rect class="bar" x="720" y="171" width="110" height="12" rx="6"/>
+  <rect class="fill" x="720" y="171" width="110" height="12" rx="6"/>
+  <text class="s" x="838" y="181">1/1 ✓</text>
+  <text class="t" x="624" y="205">todo.py</text>
+  <rect class="bar" x="720" y="195" width="110" height="12" rx="6"/>
+  <text class="s" x="838" y="205">0/1</text>
+  <text class="t" x="624" y="229">cli.py</text>
+  <rect class="bar" x="720" y="219" width="110" height="12" rx="6"/>
+  <rect class="fill" x="720" y="219" width="73" height="12" rx="6"/>
+  <text class="s" x="838" y="229">2/3</text>
+  <text class="s" x="624" y="252">Short files need 1 golden, longer ones 3.</text>
+
+  <rect class="amber" x="624" y="266" width="252" height="70" rx="10"/>
+  <text class="t ambert" x="638" y="288" font-weight="600">Edit storage.py later?</text>
+  <text class="s ambers" x="638" y="308">Its golden goes stale until you</text>
+  <text class="s ambers" x="638" y="325">re-check it in your next quiz.</text>
+
+  <text class="s" x="624" y="358">↻ Ask more, and coverage keeps</text>
+  <text class="s" x="624" y="376">   growing with what you care about.</text>
 </svg>
