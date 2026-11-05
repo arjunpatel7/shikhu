@@ -1,9 +1,9 @@
 """shikhu generate-from-study — quiz questions seeded by the questions the user asked about a file."""
 
 import typer
-from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.utils import changed_files, console, ensure_api_key, file_diff, golden_target
+from shikhu.env import load_env
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import init_db, insert_questions
 
@@ -46,7 +46,7 @@ def generate_from_study(
     Seeds come from /shikhu-study and /shikhu-inquiry, and from past questions `shikhu map`
     found in your transcripts. Each seed is used once; a question you asked again that matches
     an unanswered quiz question moves that question up instead of writing a near-duplicate."""
-    load_dotenv(find_dotenv(usecwd=True))
+    load_env()
     ensure_api_key()
     init_db()
 

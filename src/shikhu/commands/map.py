@@ -12,7 +12,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import typer
-from dotenv import find_dotenv, load_dotenv
 from rich.table import Table
 
 from shikhu import systemone
@@ -24,6 +23,7 @@ from shikhu.commands.utils import (
     get_trackable_files,
     golden_target,
 )
+from shikhu.env import load_env
 from shikhu.inquiry import MAP_ALGO_VERSION, past_question_bar, score_past_prompt
 from shikhu.staleness import mark_stale_questions
 from shikhu.store import (
@@ -218,7 +218,7 @@ def map_(
     Reads this repo's Claude Code transcripts (they stay on your machine), then sends each
     past prompt with your file summaries to Jev through OpenRouter to find which were
     questions about the code and which files they were about. Asks before spending."""
-    load_dotenv(find_dotenv(usecwd=True))
+    load_env()
     init_db()
     # Local and free, as in coverage and quiz: an edited file's goldens shouldn't still count.
     mark_stale_questions()

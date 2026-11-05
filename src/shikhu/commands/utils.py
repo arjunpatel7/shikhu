@@ -52,9 +52,9 @@ def ensure_api_key() -> None:
             "[bold]INCEPTION_API_KEY[/bold] is no longer read."
         )
     console.print(
-        "  Question and summary generation need an OpenRouter API key. Add "
-        "[bold]OPENROUTER_API_KEY=...[/bold] to a [bold].env[/bold] file in this repo "
-        "(auto-loaded) or export it in your shell."
+        "  Question and summary generation need an OpenRouter API key. Run "
+        "[bold]shikhu init[/bold] to save one for every repo, or add "
+        "[bold]OPENROUTER_API_KEY=...[/bold] to this repo's [bold].env[/bold] or your shell."
     )
     console.print("  Get a key at [link]https://openrouter.ai/keys[/link]")
     raise typer.Exit(code=1)

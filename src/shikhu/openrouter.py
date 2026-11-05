@@ -28,7 +28,7 @@ def api_key() -> str:
     key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
         raise RuntimeError(
-            "OPENROUTER_API_KEY is not set — add it to a .env file in this repo or export it"
+            "OPENROUTER_API_KEY is not set — run `shikhu init` to save it, or add it to .env or your shell"
         )
     return key
 

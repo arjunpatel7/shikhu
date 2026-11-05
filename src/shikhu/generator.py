@@ -7,9 +7,9 @@ import tomllib
 from pathlib import Path
 
 import requests
-from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from shikhu.env import load_env
 from shikhu.openrouter import (
     ERROR_SNIPPET,
     check_response,
@@ -17,10 +17,8 @@ from shikhu.openrouter import (
 )
 from shikhu.store import read_file_lines
 
-# Load .env at import so OPENROUTER_API_KEY is present before any request is made.
-# find_dotenv(usecwd=True): load_dotenv() otherwise searches upward from this
-# installed package's own file location, not the user's working directory.
-load_dotenv(find_dotenv(usecwd=True))
+# Load keys at import so OPENROUTER_API_KEY is present before any request is made.
+load_env()
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "inception/mercury-3"

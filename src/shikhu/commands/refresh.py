@@ -3,7 +3,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import typer
-from dotenv import find_dotenv, load_dotenv
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from shikhu.commands.summarize import _summarize_one
@@ -15,6 +14,7 @@ from shikhu.commands.utils import (
     get_trackable_files,
     golden_target,
 )
+from shikhu.env import load_env
 from shikhu.staleness import compute_file_hash, mark_stale_questions, pin_commit
 from shikhu.store import delete_summaries_not_in, get_golden_counts, init_db
 
@@ -31,7 +31,7 @@ def refresh(
     ),
 ):
     """Check staleness, regenerate questions + summaries, print summary."""
-    load_dotenv(find_dotenv(usecwd=True))
+    load_env()
     ensure_api_key()
     init_db()
 
