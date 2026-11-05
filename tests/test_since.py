@@ -314,3 +314,56 @@ def test_quiz_since_serves_a_branch_question_for_big_changes_before_rechecks(bra
         result = runner.invoke(app, ["quiz", "--since", "main", "--n", "1"], input="a\ns\n")
     assert "NEW on the branch" in result.output
     assert "OLD re-check" not in result.output
+
+
+def test_file_diff_is_the_branch_change_and_empty_when_untouched(branch):
+    from shikhu.commands.utils import file_diff
+
+    (branch / "other.py").write_text("y = 1\n")
+    _git(branch, "add", "other.py")
+    _commit_at(branch, "2026-01-03T00:00:00Z", "-m", "unrelated")
+    diff = file_diff("main", "big.py")
+    assert "+x19 = 19" in diff and "-x = 1" in diff
+    assert file_diff("main", "nothing.py") == ""
+
+
+def test_generate_from_study_since_aims_the_writer_at_the_diff(branch):
+    from shikhu.generator import MCQuestion, Quiz
+
+    rid = store.start_review("big.py")
+    store.log_study_question(rid, "what changed in big?", was_conceptual=True)
+    seen = {}
+
+    def fake_gen(file_path, num_questions=3, seeds=None, past=False, diff=""):
+        seen["diff"] = diff
+        q = MCQuestion(question="Why?", choices=["w", "x", "y", "z"], correct_index=0)
+        return Quiz(questions=[q]), {"completion_tokens": 1, "elapsed": 0.1}, [], []
+
+    with (
+        patch("shikhu.generator.generate_questions_from_study_seeds", fake_gen),
+        patch("shikhu.inquiry.match_existing", lambda t, c: {}),
+    ):
+        result = runner.invoke(app, ["generate-from-study", "big.py", "--since", "main"])
+    assert result.exit_code == 0, result.output
+    assert "+x19 = 19" in seen["diff"]
+
+
+def test_the_change_rule_and_diff_go_in_the_prompt_only_when_given(tmp_path, monkeypatch):
+    from shikhu import generator
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.py").write_text("X = 1\n")
+    rid = store.start_review("a.py")
+    store.log_study_question(rid, "how does a work?", was_conceptual=True)
+    prompts = []
+
+    def capture(prompt):
+        prompts.append(prompt)
+        q = generator.MCQuestion(question="Q", choices=["a1", "b2", "c3", "d4"], correct_index=0)
+        return generator.Quiz(questions=[q]), {}
+
+    with patch.object(generator, "generate_quiz", capture):
+        generator.generate_questions_from_study_seeds("a.py")
+        generator.generate_questions_from_study_seeds("a.py", diff="-X = 0\n+X = 1")
+    assert "reviewing a change" not in prompts[0]
+    assert "reviewing a change they made to a.py" in prompts[1] and "+X = 1" in prompts[1]

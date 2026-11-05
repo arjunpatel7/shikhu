@@ -178,7 +178,8 @@ def coverage(
                 console.print(
                     "  For a file you changed a lot, re-checking older questions won't do it. Ask about "
                     "your change with [bold]/shikhu-inquiry[/bold], then run "
-                    "[bold]shikhu generate-from-study <file>[/bold] and [bold]shikhu quiz --file <file>[/bold]."
+                    f"[bold]shikhu generate-from-study <file>{scope}[/bold] and "
+                    "[bold]shikhu quiz --file <file>[/bold]."
                 )
             raise typer.Exit(code=1)
         console.print(

@@ -256,6 +256,16 @@ CROSS_FILE_RULE = (
     "they work together, write the question so it needs facts from more than one of them."
 )
 
+# Given only the whole file, the writer picks topics from anywhere in it, so questions on a branch
+# missed the change being reviewed (#59's quiz asked about the shuffle and stats in generator.py).
+CHANGE_RULE = (
+    "The developer is reviewing a change they made to {path} on their branch, shown as a diff "
+    "below (lines starting with + were added, - were removed). Write every question about what "
+    "this change does or why it was made: behavior it adds, removes or alters. Use the rest of "
+    "the file only as context. Where the developer's questions are about other parts of the "
+    "file, connect them to the change."
+)
+
 # Past questions (from `shikhu map`) were asked about whatever the code was at the time, which
 # may be weeks and many edits ago. They say what the developer wanted to understand, not what
 # the code does now, so the quiz must come from the current code alone.
@@ -273,6 +283,7 @@ def generate_questions_from_study_seeds(
     num_questions: int = 3,
     seeds: list[dict] | None = None,
     past: bool = False,
+    diff: str = "",
 ) -> tuple[Quiz, dict, list[int], list[str]] | None:
     """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
@@ -282,7 +293,9 @@ def generate_questions_from_study_seeds(
     that has no fresh quiz question yet.
 
     Pass past=True for seeds that are past questions from `shikhu map`: they may describe code
-    that has since changed, so the prompt treats them as a guide to topics only."""
+    that has since changed, so the prompt treats them as a guide to topics only.
+
+    Pass the branch's `diff` for the file (utils.file_diff) to aim the questions at the change."""
     from shikhu.store import get_conceptual_study_questions_for_file
 
     if seeds is None:
@@ -313,6 +326,7 @@ def generate_questions_from_study_seeds(
         + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
         + f"{ONE_TRUE_ANSWER_RULE}\n\n"
         + f"{CHOICE_LENGTH_RULE}\n\n"
+        + (f"{CHANGE_RULE.format(path=file_path)}\n\n{diff}\n\n" if diff else "")
         + files_block
     )
 
