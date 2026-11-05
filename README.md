@@ -164,7 +164,7 @@ shikhu quiz --since main               # quiz only on changed files (re-validati
 shikhu coverage --since main --check   # exit 1 if a changed file has no fresh golden question
 ```
 
-`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. With `--since`, a file changed by more than 10 lines only counts goldens on questions written since your branch started, so re-checking an old question can't pass it; ask about the change with `/shikhu-inquiry` and quiz on the new questions. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so run it on your machine (for example in a pre-push hook), not in CI.
+`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. With `--since`, a file changed by more than 10 lines only counts goldens on questions written since your branch started, so re-checking an old question can't pass it; ask about the change with `/shikhu-inquiry` and quiz on the new questions. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so it runs on your machine, not in CI. To run the check on every push, use `shikhu install-hook` (`shikhu init` offers it): **warn** lists the changes you haven't been quizzed on and pushes anyway, **block** stops the push until you have. Switch with `git config shikhu.gate.mode block`; skip once with `SHIKHU_GATE=off git push`.
 
 ## Concepts
 
@@ -180,6 +180,7 @@ shikhu coverage --since main --check   # exit 1 if a changed file has no fresh g
 |---------|-------------|
 | `shikhu init` | Set up the database, check API keys, create `.quizignore`, install both skills (`--no-skill` to skip) |
 | `shikhu install-skill` | Install the `/shikhu-inquiry` and `/shikhu-study` skills (`--global` for all projects) |
+| `shikhu install-hook` | Check your understanding before each `git push` (`--mode warn` or `block`; never replaces another tool's hook) |
 | `shikhu coverage` | Print the knowledge-coverage report and a study queue (`--queue N` sets its length, `0` hides it) |
 | `shikhu map` | Show where your past Claude Code questions have been, next to coverage, and pick a file to start on. Scores new past prompts with Jev after showing the cost (`--dry-run` to only estimate, `--yes` to skip the prompt) |
 | `shikhu coverage --since main --check [--min N]` | Report changed files; exit 1 if any has fewer than N fresh goldens (default 1) |
