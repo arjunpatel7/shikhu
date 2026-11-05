@@ -239,9 +239,15 @@ def map_(
     counts = count_past_prompts(MAP_ALGO_VERSION)
     if not counts["total"]:
         console.print(
-            f"No Claude Code transcripts found for this repo [dim](looked in {transcripts_dir})[/dim]."
+            "Nothing to map yet: shikhu map reads the Claude Code sessions you ran in this "
+            f"folder, and there are none [dim](looked in {transcripts_dir})[/dim]."
         )
-        console.print("[dim]shikhu map reads Claude Code sessions run from this directory.[/dim]")
+        console.print(
+            "  Start another way: ask your agent a question about this code (the "
+            "[bold]/shikhu-inquiry[/bold] skill turns it into quiz questions), or run "
+            "[bold]shikhu refresh[/bold] for general questions on every file, then "
+            "[bold]shikhu quiz[/bold]."
+        )
         return
 
     console.print(

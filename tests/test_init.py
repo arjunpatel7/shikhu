@@ -83,3 +83,13 @@ def test_init_flags_legacy_inception_key(tmp_path, monkeypatch):
         result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert "INCEPTION_API_KEY is no longer used" in result.output
+
+
+def test_init_quizignore_skips_both_agent_skill_dirs(tmp_path, monkeypatch):
+    """The skills init installs are shikhu's files, not the user's code: never summarize them."""
+    from shikhu.cli import app
+
+    monkeypatch.chdir(tmp_path)
+    runner.invoke(app, ["init"])
+    patterns = (tmp_path / ".quizignore").read_text().splitlines()
+    assert ".claude/" in patterns and ".agents/" in patterns
