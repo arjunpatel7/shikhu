@@ -69,6 +69,7 @@ def install_skill(
     console.print(
         "\n  [bold]/shikhu-study <file>[/bold] walks you through a file. "
         "[bold]/shikhu-inquiry[/bold] answers a question about your code and banks it — "
-        "invoke it directly any time, or just ask and it will often trigger on its own."
+        "invoke it directly any time, or just ask and it will often trigger on its own. "
+        "[bold]/shikhu[/bold] answers how to use shikhu itself."
         "\n  [dim](restart the agent if they don't show up yet)[/dim]"
     )
