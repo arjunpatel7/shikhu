@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 236" width="100%" role="img" aria-labelledby="title desc">
+  <title id="title">The Shikhu ship loop</title>
+  <desc id="desc">Code with your agent on a branch, ask about the change so Shikhu writes questions from the diff, run shikhu quiz --since main, then git push. The hook checks: if you have been quizzed the push goes through to a PR; if not, block mode stops it and warn mode reminds you, and you go back to the quiz.</desc>
+  <style>
+    .lbl { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
+    .code { font: 600 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-anchor: middle; dominant-baseline: central; }
+    .sub { font: 400 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
+    .gray rect { fill: #F1EFE8; stroke: #888780; } .gray .lbl, .gray .code { fill: #2C2C2A; } .gray .sub { fill: #5F5E5A; }
+    .teal rect { fill: #E1F5EE; stroke: #0F6E56; } .teal .lbl, .teal .code { fill: #04342C; } .teal .sub { fill: #0F6E56; }
+    .amber rect { fill: #FAEEDA; stroke: #854F0B; } .amber .lbl, .amber .code { fill: #412402; } .amber .sub { fill: #854F0B; }
+    .green rect { fill: #EAF3DE; stroke: #3B6D11; } .green .lbl { fill: #173404; } .green .sub { fill: #3B6D11; }
+    .coral rect { fill: #FAECE7; stroke: #993C1D; } .coral .lbl { fill: #4A1B0C; } .coral .sub { fill: #993C1D; }
+    .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+    .head { fill: #888780; }
+    @media (prefers-color-scheme: dark) {
+      .gray rect { fill: #2C2C2A; stroke: #888780; } .gray .lbl, .gray .code { fill: #F1EFE8; } .gray .sub { fill: #B4B2A9; }
+      .teal rect { fill: #04342C; stroke: #5DCAA5; } .teal .lbl, .teal .code { fill: #E1F5EE; } .teal .sub { fill: #9FE1CB; }
+      .amber rect { fill: #412402; stroke: #EF9F27; } .amber .lbl, .amber .code { fill: #FAEEDA; } .amber .sub { fill: #FAC775; }
+      .green rect { fill: #173404; stroke: #97C459; } .green .lbl { fill: #EAF3DE; } .green .sub { fill: #C0DD97; }
+      .coral rect { fill: #4A1B0C; stroke: #F0997B; } .coral .lbl { fill: #FAECE7; } .coral .sub { fill: #F5C4B3; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9 z" class="head"/>
+    </marker>
+  </defs>
+
+  <g class="gray">
+    <rect x="20" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="110" y="44">Code with your agent</text>
+    <text class="sub" x="110" y="66">on a branch, as usual</text>
+  </g>
+  <g class="teal">
+    <rect x="230" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="320" y="44">Ask about the change</text>
+    <text class="sub" x="320" y="66">questions from the diff</text>
+  </g>
+  <g class="teal">
+    <rect x="440" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="code" x="530" y="44">shikhu quiz</text>
+    <text class="sub" x="530" y="66">--since main</text>
+  </g>
+  <g class="amber">
+    <rect x="650" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="code" x="740" y="44">git push</text>
+    <text class="sub" x="740" y="66">the hook checks</text>
+  </g>
+
+  <line class="arr" x1="202" y1="53" x2="226" y2="53" marker-end="url(#a)"/>
+  <line class="arr" x1="412" y1="53" x2="436" y2="53" marker-end="url(#a)"/>
+  <line class="arr" x1="622" y1="53" x2="646" y2="53" marker-end="url(#a)"/>
+
+  <g class="green">
+    <rect x="650" y="150" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="740" y="174">Quizzed</text>
+    <text class="sub" x="740" y="196">push goes through, then PR</text>
+  </g>
+  <g class="coral">
+    <rect x="440" y="150" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="530" y="174">Not quizzed yet</text>
+    <text class="sub" x="530" y="196">block stops, warn reminds</text>
+  </g>
+
+  <line class="arr" x1="770" y1="88" x2="770" y2="146" marker-end="url(#a)"/>
+  <path class="arr" d="M710 88 L710 118 L570 118 L570 146" marker-end="url(#a)"/>
+  <line class="arr" x1="490" y1="148" x2="490" y2="90" marker-end="url(#a)"/>
+</svg>

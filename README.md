@@ -52,8 +52,7 @@ Shikhu is designed to feel seamless and fit into existing development workflows.
 
 ## How it works
 
-✍️ **[diagram 1: the learn loop]** ask your agent → questions written from your code and your
-question → `shikhu quiz` → golden question → coverage
+<img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/learn-loop.svg" alt="Ask your agent about your code, Shikhu writes questions from it, you take the quiz, and a right answer you rate good becomes a golden question that raises your coverage." width="100%">
 
 Every conceptual question you ask your agent about your code is a sign of what you care about. Shikhu keeps those questions, writes multiple-choice questions from them and your actual code, and quizzes you in the terminal.
 
@@ -109,8 +108,7 @@ From there, build with your agent as usual. Every push asks whether you've been 
 
 ## Ship with it
 
-✍️ **[diagram 2: the ship loop]** code with your agent → ask about the change → quiz →
-`git push` (the hook checks) → PR
+<img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/ship-loop.svg" alt="Code on a branch, ask about the change, shikhu quiz --since main, then git push: quizzed means the push goes through; not quizzed means block stops it or warn reminds you." width="100%">
 
 This is where Shikhu shines. By adding Shikhu to your dev workflow, you can ensure you take a bit of time to continue developing your understanding over time. Keep building with your agent, ask it about what it just changed, take a short quiz, then push.
 
@@ -166,33 +164,41 @@ Details: [Privacy & data](https://github.com/arjunpatel7/shikhu/blob/main/docs/g
 
 ## FAQ
 
-**Why quizzes?**
-Reading a diff feels like understanding. Answering a question about it proves it. Testing yourself (retrieval practice) is one of the most reliable ways to learn, and a multiple-choice question takes about 20 seconds. And because the questions come from what you asked your agent, they're about what you actually care about.
+**Why quizzes? Quizzes are boring!**
+Yeah, I know, but quizzes are proven to actually develop understanding. They typically take a couple seconds to answer, and the tiny habit you form reviewing will slowly help build understanding.
+
+Additionally, developing and maintaing quiz questions yourself while you use Shikhu is really neat. You are basically curating a validated benchmark/question set/onboarding guide over your own codebase as a byproduct of you working. That idea is really powerful, and one that I want to continue developing with Shikhu. Imagine being able to onboard teammates, or benchmark agents, using an up-to-date codebase specific assessment. Kinda neat!
+
 
 **Why should I care? Won't agents know everything?**
-Agents can explain your code, but you're the one who has to own it: reviewing it, debugging it when it breaks, deciding what to build next. Your agent starts each session fresh; you're the one who carries the context. And if you can't evaluate what it wrote, you can't catch its mistakes. Shikhu keeps you in the loop without slowing your agent down.
+This is super tempting to feel, but I believe that we can't give agents all the power here. Shikhu offers a path to maintain conceptual understanding (generally what the codebase does at a high level) while deferring specifics to agents. By maintaining conceptual, high level undertanding, you can more easily action on your codebase rather than throwing more tokens at the problem.
+
+This actually makes you more efficient at using agents too! If you can precisely diagnose and articulate the problem, you can direct your agents much faster. Or, you can even estimate how well your agents know your codebase... compared to you!
 
 **Who made this?**
 ✍️ [your words: who you are, why you built it, where to find you]
 
 **How does Shikhu use Jev?**
-Jev is TypeSafe's judgment model, which Shikhu calls through OpenRouter. Instead of writing text, it answers typed yes/no questions with a calibrated probability, so Shikhu can set a threshold instead of parsing an answer. It's used in two places:
+Jev is TypeSafe's judgment model, which Shikhu calls through OpenRouter. Instead of writing text, it answers typed yes/no questions with a calibrated probability, so Shikhu can set a threshold instead of parsing an answer. It's used in three places:
 - **`shikhu map`:** for each past prompt in your Claude Code history, Jev judges whether it was a question about this codebase, and how likely it is to be about each file. All the files are judged in one request, so it's cheap. The first run scores your whole history, later runs only new prompts, and each run stops at a $1 cap (`SHIKHU_JEV_BUDGET_USD`).
 - **`/shikhu-inquiry`:** when you ask your agent a question, Jev first checks whether this repo can answer it at all, then scores each file, so the agent knows where the answer lives.
+- **`shikhu generate-from-study`:** before writing new questions, Jev checks whether an unanswered quiz question already tests what you asked. If one does, that question moves to the front of your next quiz instead of getting a near-duplicate.
 
-Jev sees your questions (or past prompts) and your file summaries, never your source code.
+Jev sees your questions, past prompts, file summaries and quiz questions, never your source code.
 
 **How does Shikhu use Mercury?**
 Mercury 3 is Inception's diffusion language model: instead of writing one token at a time, it refines the whole answer in parallel, which makes it fast and cheap. Shikhu calls it through OpenRouter for two jobs:
 - **Summaries** (`shikhu summarize`): a short summary of each file, cached and only redone when the file changes.
 - **Quiz questions** (`refresh`, `generate-from-study`): written as structured JSON (a question, four choices, one answer) from your code and the questions you asked. The writer follows rules for exactly one true answer and similar-length choices, and on a branch it sees the diff so the questions are about your change.
 
+Mercury is super super fast and cheap, so it's great for summarizing code and generating good questions.
+
 You can point Shikhu at another model with `SHIKHU_MODEL` (experimental; it needs to support structured outputs).
 
 <!--
 DON'T-FORGET CHECKLIST (delete before merge)
 - [ ] Hero image (absolute URL so PyPI shows it)
-- [ ] Both diagrams as committed SVGs in docs/images/, absolute URLs
+- [x] Both diagrams as committed SVGs in docs/images/, absolute URLs (they 404 until this merges to main)
 - [x] Cost line: about a cent for a first run; $5 OpenRouter minimum top-up
 - [x] Python 3.12+ (SHI-49)
 - [x] Languages + --extensions (SHI-45)

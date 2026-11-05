@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 168" width="100%" role="img" aria-labelledby="title desc">
+  <title id="title">The Shikhu learn loop</title>
+  <desc id="desc">Ask your agent about your code, Shikhu writes questions from your code and your question, you take the quiz, and a right answer you rate good becomes a golden question that raises your knowledge coverage. Then ask more.</desc>
+  <style>
+    .lbl { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
+    .sub { font: 400 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
+    .note { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; dominant-baseline: central; fill: #5F5E5A; }
+    .gray rect { fill: #F1EFE8; stroke: #888780; } .gray .lbl { fill: #2C2C2A; } .gray .sub { fill: #5F5E5A; }
+    .teal rect { fill: #E1F5EE; stroke: #0F6E56; } .teal .lbl { fill: #04342C; } .teal .sub { fill: #0F6E56; }
+    .amber rect { fill: #FAEEDA; stroke: #854F0B; } .amber .lbl { fill: #412402; } .amber .sub { fill: #854F0B; }
+    .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+    .head { fill: #888780; }
+    @media (prefers-color-scheme: dark) {
+      .gray rect { fill: #2C2C2A; stroke: #888780; } .gray .lbl { fill: #F1EFE8; } .gray .sub { fill: #B4B2A9; }
+      .teal rect { fill: #04342C; stroke: #5DCAA5; } .teal .lbl { fill: #E1F5EE; } .teal .sub { fill: #9FE1CB; }
+      .amber rect { fill: #412402; stroke: #EF9F27; } .amber .lbl { fill: #FAEEDA; } .amber .sub { fill: #FAC775; }
+      .note { fill: #B4B2A9; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9 z" class="head"/>
+    </marker>
+  </defs>
+
+  <g class="gray">
+    <rect x="20" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="110" y="44">Ask your agent</text>
+    <text class="sub" x="110" y="66">about your code</text>
+  </g>
+  <g class="teal">
+    <rect x="230" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="320" y="44">Shikhu writes</text>
+    <text class="sub" x="320" y="66">questions from your code</text>
+  </g>
+  <g class="teal">
+    <rect x="440" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="530" y="44">shikhu quiz</text>
+    <text class="sub" x="530" y="66">about 20 s a question</text>
+  </g>
+  <g class="amber">
+    <rect x="650" y="20" width="180" height="66" rx="10" stroke-width="1"/>
+    <text class="lbl" x="740" y="44">Golden question</text>
+    <text class="sub" x="740" y="66">right, and rated good</text>
+  </g>
+
+  <line class="arr" x1="202" y1="53" x2="226" y2="53" marker-end="url(#a)"/>
+  <line class="arr" x1="412" y1="53" x2="436" y2="53" marker-end="url(#a)"/>
+  <line class="arr" x1="622" y1="53" x2="646" y2="53" marker-end="url(#a)"/>
+
+  <path class="arr" d="M740 88 L740 128 L110 128 L110 92" marker-end="url(#a)"/>
+  <text class="note" x="425" y="150">Each golden question raises your knowledge coverage. Ask more, and it keeps growing.</text>
+</svg>
