@@ -128,71 +128,99 @@ def file_diff(base: str, path: str) -> str:
     return "\n".join(lines)
 
 
+def _quizignore_patterns(path: Path | None = None) -> list[str]:
+    ignore_path = path or Path(".quizignore")
+    if not ignore_path.exists():
+        return []
+    lines = (line.strip() for line in ignore_path.read_text().splitlines())
+    return [line for line in lines if line and not line.startswith("#")]
+
+
+def _quizignored(f: str, patterns: list[str]) -> bool:
+    for p in patterns:
+        if fnmatch.fnmatch(f, p) or fnmatch.fnmatch(os.path.basename(f), p):
+            return True
+        if f.startswith(p.rstrip("/") + "/"):
+            return True
+    return False
+
+
+def _has_content(path: str) -> bool:
+    """False for an empty or whitespace-only file, like a bare __init__.py: there's nothing in
+    it to ask about, so counting it would hold coverage below 100% forever."""
+    try:
+        if os.path.getsize(path) > 256:
+            return True
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return bool(f.read().strip())
+    except OSError:
+        return True  # tracked but missing from disk: leave it to the caller, as before
+
+
 def get_trackable_files(
     extensions: str = DEFAULT_EXTENSIONS,
     quizignore_path: Path | None = None,
 ) -> list[str]:
-    """Return repo files filtered by extensions and .quizignore."""
+    """Return repo files filtered by extensions and .quizignore, minus empty files."""
     result = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
     if result.returncode != 0:
         return []
 
     ext_set = set(extensions.split(","))
-    all_files = [
+    patterns = _quizignore_patterns(quizignore_path)
+    return [
         f
         for f in result.stdout.strip().split("\n")
-        if f and any(f.endswith(ext) for ext in ext_set)
+        if f
+        and any(f.endswith(ext) for ext in ext_set)
+        and not _quizignored(f, patterns)
+        and _has_content(f)
     ]
-
-    ignore_path = quizignore_path or Path(".quizignore")
-    if ignore_path.exists():
-        patterns = [
-            line.strip()
-            for line in ignore_path.read_text().splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        ]
-
-        def _ignored(f, patterns):
-            for p in patterns:
-                if fnmatch.fnmatch(f, p):
-                    return True
-                if fnmatch.fnmatch(os.path.basename(f), p):
-                    return True
-                if f.startswith(p.rstrip("/") + "/"):
-                    return True
-            return False
-
-        all_files = [f for f in all_files if not _ignored(f, patterns)]
-
-    return all_files
 
 
 def no_trackable_files_hint(extensions: str = DEFAULT_EXTENSIONS) -> str:
-    """Why get_trackable_files() found nothing, and what to do about it."""
+    """Why get_trackable_files() found nothing, and the exact next step.
+
+    Says what was looked at, what was wrong and what to run, so someone (or an agent) with no
+    other context can fix it."""
     if not _git_lines("rev-parse", "--is-inside-work-tree"):
         return (
-            "No trackable files: this folder isn't a git repository. shikhu reads the files git "
-            "knows about, so run it inside your repo (or `git init` and `git add` your code)."
+            "No trackable files: this folder isn't a git repository, and shikhu only reads files "
+            "git knows about. Run shikhu inside your repo, or start one: `git init`, then "
+            "`git add` your code."
         )
     ext_set = set(extensions.split(","))
+    patterns = _quizignore_patterns()
 
     def matching(*args: str) -> list[str]:
         return [f for f in _git_lines("ls-files", *args) if any(f.endswith(e) for e in ext_set)]
 
-    # Files git tracks with a matching extension, yet none survived: .quizignore removed them all.
     tracked = matching()
     if tracked:
+        kept = [f for f in tracked if not _quizignored(f, patterns)]
+        if not kept:
+            return (
+                f"No trackable files: git tracks {len(tracked)} matching file(s), but .quizignore "
+                "excludes all of them. Remove or narrow the patterns in .quizignore."
+            )
         return (
-            f"No trackable files: all {len(tracked)} matching file(s) are excluded by .quizignore. "
-            "Remove or narrow its patterns to include them."
+            f"No trackable files: the {len(kept)} matching file(s) git tracks, like {kept[0]}, "
+            "are empty, so there's nothing to ask about yet. Add code to them, commit it, and "
+            "run this again."
         )
-    untracked = matching("--others", "--exclude-standard")
+    # Files shikhu itself created (its skills) are quizignored, so they don't count as your code.
+    untracked = [
+        f for f in matching("--others", "--exclude-standard") if not _quizignored(f, patterns)
+    ]
     if untracked:
         return (
-            f"No trackable files: {len(untracked)} file(s) like {untracked[0]} aren't committed or "
-            "staged yet. shikhu reads committed and staged files, so `git add` them first."
+            f"No trackable files: {len(untracked)} file(s) like {untracked[0]} exist but aren't "
+            "committed or staged, and shikhu only reads files git tracks. Run `git add` on them "
+            "(committing is optional), then run this again."
         )
+    exts = extensions.replace(",", ", ")
     return (
-        f"No trackable files: nothing in git ends in {extensions.replace(',', ', ')}. "
-        "For other languages, pass them with --extensions, e.g. --extensions .go,.rs"
+        f"No trackable files: this repo has no code yet in {exts}. Write some, `git add` it, "
+        "and run this again. For other languages, pass them with --extensions, "
+        "e.g. --extensions .go,.rs"
     )

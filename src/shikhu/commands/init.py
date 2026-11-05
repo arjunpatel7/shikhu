@@ -51,7 +51,9 @@ def init(
 
     quizignore = Path(".quizignore")
     if not quizignore.exists():
-        quizignore.write_text("# Files to skip during quiz generation\n*.lock\n.claude/\n")
+        quizignore.write_text(
+            "# Files to skip during quiz generation\n*.lock\n.claude/\n.agents/\n"
+        )
         console.print("  [green]>[/green] Created .quizignore")
     else:
         console.print("  [dim]>[/dim] .quizignore already exists")

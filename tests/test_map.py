@@ -323,7 +323,8 @@ def test_no_transcripts(tmp_path, monkeypatch):
     monkeypatch.setattr(map_cmd, "get_trackable_files", lambda ext=None: ["a.py"])
     result = runner.invoke(app, ["map", "--transcripts", str(tmp_path / "none")])
     assert result.exit_code == 0, result.output
-    assert "No Claude Code transcripts found" in result.output
+    assert "Nothing to map yet" in result.output
+    assert "shikhu refresh" in result.output  # says what to do instead
 
 
 def test_no_summaries(monkeypatch):
