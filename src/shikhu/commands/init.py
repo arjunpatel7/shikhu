@@ -16,7 +16,7 @@ def init(
     no_skill: bool = typer.Option(
         False,
         "--no-skill",
-        help="Skip installing the /shikhu-inquiry and /shikhu-study skills for your agent.",
+        help="Skip installing shikhu's skills (/shikhu, /shikhu-inquiry, /shikhu-study) for your agent.",
     ),
 ):
     """Set up Shikhu: create DB, check API keys, generate .quizignore."""

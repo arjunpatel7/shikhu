@@ -8,12 +8,11 @@ description: >-
   reading files here. These arrive casually and mid-task, often elliptical or typo-laden:
   "how are we storing quizzes rn?", "what does that for loop do?", "what's the pre-push
   hook?", "why do I gotta do that venv thing?", "explain how verifying/decoding works".
-  Use it for those. Nothing else detects these, so a question you skip is lost.
+  Nothing else detects these, so a question you skip is lost.
   Do NOT use it for: instructions to do work; short remarks, fragments or acknowledgements;
   session or tool boilerplate; requests to restate or clarify something already said;
   questions about the assistant itself; questions about external products, services or
   libraries; or product, pricing and strategy questions.
-  The user can also invoke it explicitly as /shikhu-inquiry.
 allowed-tools:
   - Read
   - Grep
@@ -121,7 +120,28 @@ same lack of ceremony as a confirmation.
 If the user ignores the confirm and moves on to something else, **record nothing** and drop
 it. Don't re-ask, and don't record a confirmation they didn't give.
 
-## 5. Don't oversell what was earned
+## 5. On a branch, write the questions the push gate needs
+
+If they **confirmed** and the repo is on a branch other than its default branch, they're
+shipping a change, and the push gate will ask whether they understand it. Turn the question
+into quiz questions about the change right away, once per file you recorded (the top file
+and each `--also` file):
+
+```bash
+base=$(git config --get shikhu.gate.base || echo main)   # the branch the gate compares against
+shikhu generate-from-study "<file>" --since "$base"
+```
+
+`--since` shows the question writer what the branch changed in the file, so the questions
+are about the change, not the rest of the file; a file the branch didn't touch falls back
+to the whole file on its own. Each call is one quick model call on their OpenRouter key
+(a fraction of a cent). Then say one line and nothing more:
+
+> *"Wrote quiz questions on your change. Run `shikhu quiz --since <base>` when you're ready."*
+
+Skip this after a rejection, and on the default branch (there, step 6's one line is enough).
+
+## 6. Don't oversell what was earned
 
 Confirming validates the **question**, not the user's knowledge — they just asked it, which
 is mild evidence they *didn't* know. Knowledge credit comes only from answering it later in
@@ -137,5 +157,6 @@ Usually say nothing at all. The recording is bookkeeping, not an achievement.
 
 - The user asked you to *do* something (write, fix, run, refactor). That's not an inquiry.
 - The question is about a library, a tool, the agent itself, or general programming.
+  Questions about using shikhu itself go to /shikhu.
   The gate in step 1 catches most of these; trust it when it says not answerable.
 - The user is mid-task and a detour would break their flow. Answer, skip the confirm.

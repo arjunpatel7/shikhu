@@ -36,7 +36,7 @@ This puts `shikhu` on your `PATH` in an isolated environment (no clash with your
 shikhu init
 ```
 
-This creates the local database (`coverage.db`, added to your `.gitignore`), a `.quizignore` file (like `.gitignore`, but for quiz generation; list config or doc files you don't want quizzed on), and **installs both skills, `/shikhu-inquiry` and `/shikhu-study`, into your agent's skills directory**. Restart your agent if the skills don't show up right away.
+This creates the local database (`coverage.db`, added to your `.gitignore`), a `.quizignore` file (like `.gitignore`, but for quiz generation; list config or doc files you don't want quizzed on), and **installs the skills, `/shikhu-inquiry`, `/shikhu-study` and `/shikhu` (how to use shikhu itself), into your agent's skills directory**. Restart your agent if the skills don't show up right away.
 
 Skills go into `.claude/skills/` (Claude Code) and/or `.agents/skills/` (Codex, Cursor, OpenCode and others), whichever already exist in the repo, or both if neither does. A few related options:
 - `shikhu init --no-skill`: set up without installing the skills.
@@ -178,7 +178,7 @@ shikhu coverage --since main --check   # exit 1 if a changed file has no fresh g
 
 | Command | What it does |
 |---------|-------------|
-| `shikhu init` | Set up the database, check API keys, create `.quizignore`, install both skills (`--no-skill` to skip) |
+| `shikhu init` | Set up the database, check API keys, create `.quizignore`, install the skills (`--no-skill` to skip) |
 | `shikhu install-skill` | Install the `/shikhu-inquiry` and `/shikhu-study` skills (`--global` for all projects) |
 | `shikhu coverage` | Print the knowledge-coverage report and a study queue (`--queue N` sets its length, `0` hides it) |
 | `shikhu map` | Show where your past Claude Code questions have been, next to coverage, and pick a file to start on. Scores new past prompts with Jev after showing the cost (`--dry-run` to only estimate, `--yes` to skip the prompt) |
