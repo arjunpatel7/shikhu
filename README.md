@@ -23,7 +23,8 @@ Shikhu turns the questions you already ask your agent into short quizzes on your
 > Use an absolute URL (`https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/...`)
 > so it also shows on PyPI, which renders this same file.
 
-## The 60-second version
+## Get started with Shikhu
+
 Get started quickly with an existing codebase. All you need is an OpenRouter key and a git repo. By the way, Shikhu works best inside Claude Code! Run `shikhu init` and `shikhu quiz` in your own terminal, since they ask you things, and let Claude handle the rest.
 
 Navigate to your codebase and initialize Shikhu:
@@ -46,21 +47,19 @@ Shikhu installs its skills, summarizes all the files in your codebase with Incep
 
 The map command allows you to see what you've already tried to learn about. Notice anything here? Try to improve your conceptual engagement by asking more questions about your code.
 
-Then take the quiz. Answer a question right, rate it good, and confirm it really tests the file, and it becomes a **golden question**. Golden questions are what count toward your coverage.
-
-Shikhu is designed to feel seamless and fit into existing development workflows. With the skill installed, continue building new features on branches, while asking questions and studying files. Your dev convos become fertile ground for review quizzes, which help benchmark your understanding. In other words, build the habit of learning while you code, without sacrificing the speed of agents.
-
 ## How it works
 
 <img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/learn-loop.svg" alt="Ask your agent about your code, Shikhu writes questions from it, you take the quiz, and a right answer you rate good becomes a golden question that raises your coverage." width="100%">
 
-Every conceptual question you ask your agent about your code is a sign of what you care about. Shikhu keeps those questions, writes multiple-choice questions from them and your actual code, and quizzes you in the terminal.
+It turns out that asking good questions about your codebase is a great way to keep learning about what it does. Shikhu uses a variety of tactics to measure, and create the habit of, asking good questions about your codebase. 
 
-- A **golden question** is one you answered right, rated good, and confirmed tests real understanding of the file.
-- A file is **covered** at 3 golden questions, or 1 for files under 75 lines.
-- Edit a file, and its golden questions go stale until you re-check them. Coverage stays honest as your code changes.
+Specifically, Shikhu identifies conceptual questions, which are likely to indicate discussions about your codebase.
 
-## Get started
+Shikhu keeps those questions, writes multiple-choice questions from them and your actual code, and quizzes you in the terminal. For each question, you can choose to accept it or reject it. Accepted, correctly answered questions are considered "golden", which means they confirm understanding of the requisite file.
+
+More golden answers means more understanding of your codebase.
+
+## Get started (the long way!)
 
 **You'll need:**
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/) (or pipx/pip)
@@ -87,7 +86,7 @@ agent: `/shikhu-inquiry`, `/shikhu-study` and `/shikhu`.
 
 ### 2a. An existing codebase
 
-Follow [the 60-second version](#the-60-second-version). No Claude Code history? Two other ways in:
+Follow [Get started with Shikhu](#get-started-with-shikhu). No Claude Code history? Two other ways in:
 
 - Ask your agent about your code. `/shikhu-inquiry` answers and banks the question; then
   `shikhu generate-from-study <file>` and `shikhu quiz --file <file>`. Our favorite: the quiz is about what *you* wanted to know.
@@ -110,7 +109,9 @@ From there, build with your agent as usual. Every push asks whether you've been 
 
 <img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/ship-loop.svg" alt="Code on a branch, ask about the change, shikhu quiz --since main, then git push: quizzed means the push goes through; not quizzed means block stops it or warn reminds you." width="100%">
 
-This is where Shikhu shines. By adding Shikhu to your dev workflow, you can ensure you take a bit of time to continue developing your understanding over time. Keep building with your agent, ask it about what it just changed, take a short quiz, then push.
+This is where Shikhu shines. By adding Shikhu to your dev workflow, you can ensure you take a bit of time to continue developing your understanding of your agent's code every time you push. Keep building with your agent, ask it about what it just changed, take a short quiz, then push.
+
+Shikhu is designed to feel seamless and fit into existing development workflows. With the skill installed, continue building new features on branches, while asking questions and studying files. Your dev convos become fertile ground for review quizzes, which help benchmark your understanding. In other words, build the habit of learning while you code, without sacrificing the speed of agents.
 
 ```bash
 # on your branch, after asking your agent about the change:
@@ -151,7 +152,7 @@ Details: [Privacy & data](https://github.com/arjunpatel7/shikhu/blob/main/docs/g
 
 ## Coming soon
 
-- **Guides for your team.** Use these learnings to help others onboard quickly: turn your golden questions into a learning path for teammates.
+- **Guides for your team.** Use these learnings to help others onboard quickly: turn your golden questions into a learning path for teammates or open source contributors.
 - **A benchmark of your own knowledge.** Track it over time, and use it to compare agent setups.
 - **Smarter quizzes.** Automatic checks that catch a flawed question before you ever see it.
 - **No API key needed.** Sign in and go.
@@ -165,20 +166,24 @@ Details: [Privacy & data](https://github.com/arjunpatel7/shikhu/blob/main/docs/g
 ## FAQ
 
 **Why quizzes? Quizzes are boring!**
-Yeah, I know, but quizzes are proven to actually develop understanding. They typically take a couple seconds to answer, and the tiny habit you form reviewing will slowly help build understanding.
 
-Additionally, developing and maintaing quiz questions yourself while you use Shikhu is really neat. You are basically curating a validated benchmark/question set/onboarding guide over your own codebase as a byproduct of you working. That idea is really powerful, and one that I want to continue developing with Shikhu. Imagine being able to onboard teammates, or benchmark agents, using an up-to-date codebase specific assessment. Kinda neat!
+Yeah, I know, but quizzes are proven to actually develop understanding. They typically take about 20 seconds to answer, and the tiny habit you form reviewing will slowly help build understanding.
+
+Additionally, developing and maintaining quiz questions yourself while you use Shikhu is really neat. You are basically curating a validated benchmark/question set/onboarding guide over your own codebase as a byproduct of you working. That idea is really powerful, and one that I want to continue developing with Shikhu. Imagine being able to onboard teammates, or benchmark agents, using an up-to-date codebase specific assessment. Kinda neat!
 
 
 **Why should I care? Won't agents know everything?**
-This is super tempting to feel, but I believe that we can't give agents all the power here. Shikhu offers a path to maintain conceptual understanding (generally what the codebase does at a high level) while deferring specifics to agents. By maintaining conceptual, high level undertanding, you can more easily action on your codebase rather than throwing more tokens at the problem.
+
+This is super tempting to feel, but I believe that we can't give agents all the power here. Shikhu offers a path to maintain conceptual understanding (generally what the codebase does at a high level) while deferring specifics to agents. By maintaining conceptual, high level understanding, you can more easily action on your codebase rather than throwing more tokens at the problem.
 
 This actually makes you more efficient at using agents too! If you can precisely diagnose and articulate the problem, you can direct your agents much faster. Or, you can even estimate how well your agents know your codebase... compared to you!
 
 **Who made this?**
+
 ✍️ [your words: who you are, why you built it, where to find you]
 
 **How does Shikhu use Jev?**
+
 Jev is TypeSafe's judgment model, which Shikhu calls through OpenRouter. Instead of writing text, it answers typed yes/no questions with a calibrated probability, so Shikhu can set a threshold instead of parsing an answer. It's used in three places:
 - **`shikhu map`:** for each past prompt in your Claude Code history, Jev judges whether it was a question about this codebase, and how likely it is to be about each file. All the files are judged in one request, so it's cheap. The first run scores your whole history, later runs only new prompts, and each run stops at a $1 cap (`SHIKHU_JEV_BUDGET_USD`).
 - **`/shikhu-inquiry`:** when you ask your agent a question, Jev first checks whether this repo can answer it at all, then scores each file, so the agent knows where the answer lives.
@@ -187,6 +192,7 @@ Jev is TypeSafe's judgment model, which Shikhu calls through OpenRouter. Instead
 Jev sees your questions, past prompts, file summaries and quiz questions, never your source code.
 
 **How does Shikhu use Mercury?**
+
 Mercury 3 is Inception's diffusion language model: instead of writing one token at a time, it refines the whole answer in parallel, which makes it fast and cheap. Shikhu calls it through OpenRouter for two jobs:
 - **Summaries** (`shikhu summarize`): a short summary of each file, cached and only redone when the file changes.
 - **Quiz questions** (`refresh`, `generate-from-study`): written as structured JSON (a question, four choices, one answer) from your code and the questions you asked. The writer follows rules for exactly one true answer and similar-length choices, and on a branch it sees the diff so the questions are about your change.
