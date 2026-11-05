@@ -24,13 +24,9 @@ Prerequisites:
 uv tool install shikhu
 ```
 
-This puts `shikhu` on your `PATH` in an isolated environment (no clash with your project's dependencies). `cd` into any repo and the commands below just work — each repo gets its own `coverage.db`, `.quizignore`, and `.env`. (`pipx install shikhu` or `pip install shikhu` into a virtualenv work too.)
+This puts `shikhu` on your `PATH` in an isolated environment (no clash with your project's dependencies). `cd` into any repo and the commands below just work — each repo gets its own `coverage.db` and `.quizignore`. (`pipx install shikhu` or `pip install shikhu` into a virtualenv work too.)
 
-Provide your OpenRouter API key via a `.env` file in the repo (auto-loaded), or export it in your shell:
-
-```
-OPENROUTER_API_KEY=your-key-here
-```
+`shikhu init` (next step) asks for your OpenRouter API key once and saves it to `~/.config/shikhu/.env`, readable only by you, so every repo can use it. An `OPENROUTER_API_KEY` exported in your shell or set in a repo's `.env` overrides the saved one.
 
 > Upgrading from 0.1.x? Shikhu no longer calls the Inception API directly, so `INCEPTION_API_KEY` is ignored — add `OPENROUTER_API_KEY` instead.
 
@@ -234,7 +230,7 @@ deprecated/
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `OPENROUTER_API_KEY` | Yes | OpenRouter API for question and summary generation |
+| `OPENROUTER_API_KEY` | Yes | OpenRouter API for question and summary generation. Read from your shell, then the repo's `.env`, then the key `shikhu init` saved in `~/.config/shikhu/.env` |
 | `SHIKHU_JEV_BUDGET_USD` | No | Spending cap for Jev calls per command run (default `1.00`). `shikhu map` stops at the cap, keeps what it scored, and picks up where it left off next run. |
 | `SHIKHU_MODEL` | No | **Experimental, unsupported.** Override the OpenRouter model id (default `inception/mercury-3`). The model must support structured outputs; reasoning models may fail with truncated responses. |
 

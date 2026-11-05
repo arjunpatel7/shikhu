@@ -23,6 +23,12 @@ def _dummy_api_key(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
 
+@pytest.fixture(autouse=True)
+def _private_config_home(tmp_path, monkeypatch):
+    """Keep tests away from the key you saved with `shikhu init`."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+
 def _insert_questions(file_path="fake.py", n=3, stale=False):
     """Insert n dummy questions, return their DB ids."""
     questions = [

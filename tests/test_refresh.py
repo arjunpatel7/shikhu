@@ -39,7 +39,7 @@ def test_refresh_requires_api_key(monkeypatch):
     from shikhu.cli import app
 
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    with patch("shikhu.commands.refresh.load_dotenv"):
+    with patch("shikhu.commands.refresh.load_env"):
         result = runner.invoke(app, ["refresh"])
     assert result.exit_code == 1
     assert "OPENROUTER_API_KEY" in result.output

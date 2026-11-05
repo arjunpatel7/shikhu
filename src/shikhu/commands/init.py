@@ -1,13 +1,14 @@
 """shikhu init — set up database and config."""
 
 import os
+import sys
 from pathlib import Path
 
 import typer
-from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.install_skill import install_skill_files
 from shikhu.commands.utils import console
+from shikhu.env import KEY_NAME, load_env, save_key
 from shikhu.store import init_db
 
 
@@ -19,9 +20,7 @@ def init(
     ),
 ):
     """Set up Shikhu: create DB, check API keys, generate .quizignore."""
-    # find_dotenv(usecwd=True): load_dotenv() otherwise searches upward from this
-    # installed package's own file location, not the user's working directory.
-    load_dotenv(find_dotenv(usecwd=True))
+    load_env()
 
     console.print()
     console.print("[bold]Shikhu[/bold] — knowledge coverage for your codebase")
@@ -30,7 +29,10 @@ def init(
     init_db()
     console.print("  [green]>[/green] Database initialized")
 
-    if not os.environ.get("OPENROUTER_API_KEY"):
+    if not os.environ.get(KEY_NAME) and _interactive():
+        _ask_for_key()
+
+    if not os.environ.get(KEY_NAME):
         console.print(
             "  [yellow]![/yellow] OPENROUTER_API_KEY not set — question generation won't work"
         )
@@ -60,6 +62,33 @@ def init(
         "[bold]shikhu map[/bold] to see where your questions have been."
     )
     console.print()
+
+
+def _interactive() -> bool:
+    """Only prompt when someone is at the keyboard, not in scripts or an agent's shell."""
+    return sys.stdin.isatty()
+
+
+def _ask_for_key() -> None:
+    """Ask for the OpenRouter key once and save it for every repo. Enter skips."""
+    console.print(
+        "  Shikhu needs an OpenRouter API key to write questions. "
+        "Get one at [link]https://openrouter.ai/keys[/link]"
+    )
+    key = typer.prompt(
+        "  Paste it here (hidden; Enter to skip)",
+        default="",
+        show_default=False,
+        hide_input=True,
+    ).strip()
+    if not key:
+        return
+    path = save_key(key)
+    os.environ[KEY_NAME] = key
+    shown = f"~/{path.relative_to(Path.home())}" if path.is_relative_to(Path.home()) else path
+    console.print(
+        f"  [green]>[/green] Saved your key to {shown} (only you can read it; every repo uses it)"
+    )
 
 
 def _ensure_gitignored():

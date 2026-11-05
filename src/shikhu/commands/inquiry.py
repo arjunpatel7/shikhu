@@ -10,9 +10,9 @@ import json
 from typing import Annotated
 
 import typer
-from dotenv import find_dotenv, load_dotenv
 
 from shikhu.commands.utils import DEFAULT_EXTENSIONS, console, get_trackable_files
+from shikhu.env import load_env
 from shikhu.inquiry import (
     ALGO_VERSION,
     GATE_THRESHOLD,
@@ -46,7 +46,7 @@ def inquiry_packet(
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable output."),
 ) -> None:
     """Find the tracked files that answer a conceptual question, with the evidence why."""
-    load_dotenv(find_dotenv(usecwd=True))
+    load_env()
     init_db()
     summaries = load_summaries()
     if not summaries:

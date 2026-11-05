@@ -67,7 +67,7 @@ def test_init_warns_missing_api_key(tmp_path, monkeypatch):
     from shikhu.cli import app
 
     monkeypatch.chdir(tmp_path)
-    with patch("shikhu.commands.init.load_dotenv"), patch.dict(os.environ, {}, clear=True):
+    with patch("shikhu.commands.init.load_env"), patch.dict(os.environ, {}, clear=True):
         result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert "OPENROUTER_API_KEY" in result.output
@@ -79,7 +79,7 @@ def test_init_flags_legacy_inception_key(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     env = {"INCEPTION_API_KEY": "old"}
-    with patch("shikhu.commands.init.load_dotenv"), patch.dict(os.environ, env, clear=True):
+    with patch("shikhu.commands.init.load_env"), patch.dict(os.environ, env, clear=True):
         result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert "INCEPTION_API_KEY is no longer used" in result.output
