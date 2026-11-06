@@ -6,6 +6,7 @@
 </p>
 
 [![CI](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml/badge.svg)](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml)
+[![GitHits index status](https://index.githits.dev/badge/repositories/github.com/arjunpatel7/shikhu/index-status.svg)](https://index.githits.dev/repositories/github.com/arjunpatel7/shikhu/)
 
 **Finally, understand the code your agents write. Measure, track, and update your knowledge coverage before every push. Fight comprehension debt, cognitive surrender and skill atrophy.**
 
