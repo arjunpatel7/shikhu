@@ -136,6 +136,13 @@ Skip once: `SHIKHU_GATE=off git push`. Add the hook later: `shikhu install-hook`
 
 The hook runs on your machine, against your local `coverage.db`, so it checks *your* pushes. It's not a CI check, and it doesn't block merges on GitHub.
 
+**Shikhu is built with Shikhu.** Working on this repo? Install the gate in block mode so every push to Shikhu passes its own check:
+
+```bash
+shikhu init
+shikhu install-hook --mode block
+```
+
 ## Your agent's skills
 
 - `/shikhu-inquiry`: ask about your code; it answers with the files that matter and banks the
