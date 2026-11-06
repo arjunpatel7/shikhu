@@ -1,4 +1,9 @@
-# Shikhu
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/logo-dark.png">
+    <img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/logo.png" alt="shikhu" width="280">
+  </picture>
+</p>
 
 [![CI](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml/badge.svg)](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml)
 
@@ -19,9 +24,7 @@ Shikhu turns the questions you already ask your agent into short quizzes on your
 
 **What's the catch?** A few minutes per PR, and a few cents for some LLM calls underneath. Wanna learn more? Grab an OpenRouter key and keep reading!
 
-✍️ **[hero image: a real terminal quiz, or the push gate blocking then passing]**
-> Use an absolute URL (`https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/...`)
-> so it also shows on PyPI, which renders this same file.
+<img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/hero.png" alt="Your agent wrote it. Can you explain it? Shikhu turns the questions you ask your agent into quick checks on your own code." width="100%">
 
 ## Get started with Shikhu
 
@@ -79,7 +82,7 @@ shikhu init
 - **Your OpenRouter key** (typing is hidden). It's saved once in `~/.config/shikhu/.env`,
   readable only by you, and every repo uses it. A key in your shell or the repo's `.env` wins.
 - **Check your understanding before each git push?** `w` warn, `b` block, or `s` skip
-  (see [Ship with it](#ship-with-it)).
+  (see [Ship with Shikhu](#ship-with-shikhu-include-shikhu-during-development)).
 
 It also creates `coverage.db` (gitignored), a `.quizignore`, and installs three skills for your
 agent: `/shikhu-inquiry`, `/shikhu-study` and `/shikhu`.
@@ -105,7 +108,7 @@ shikhu map
 
 From there, build with your agent as usual. Every push asks whether you've been quizzed on what changed, so you learn your codebase as it grows, one feature at a time.
 
-## Ship with it
+## Ship with Shikhu: Include Shikhu during development
 
 <img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/ship-loop.svg" alt="Code on a branch, ask about the change, shikhu quiz --since main, then git push: quizzed means the push goes through; not quizzed means block stops it or warn reminds you." width="100%">
 
@@ -180,7 +183,7 @@ This actually makes you more efficient at using agents too! If you can precisely
 
 **Who made this?**
 
-✍️ [your words: who you are, why you built it, where to find you]
+I did! I'm Arjun, I'm currently a senior developer advocate at Pinecone. I enjoy learning and teaching others about AI, and also using coding agents. But, I learned that I was losing my ability to learn while coding, so I wanted something that could help nudge me to keep learning. I hope Shikhu helps you to keep learning too! You can follow me on [LinkedIn](https://www.linkedin.com/in/arjunkirtipatel/), [Bluesky](https://bsky.app/profile/arjunkirtipatel.bsky.social), or [X](https://x.com/ArjunPatel777). I have a newsletter too called Answering Machines, which you can follow [here](https://buttondown.com/answeringmachines).
 
 **How does Shikhu use Jev?**
 
@@ -200,18 +203,3 @@ Mercury 3 is Inception's diffusion language model: instead of writing one token 
 Mercury is super super fast and cheap, so it's great for summarizing code and generating good questions.
 
 You can point Shikhu at another model with `SHIKHU_MODEL` (experimental; it needs to support structured outputs).
-
-<!--
-DON'T-FORGET CHECKLIST (delete before merge)
-- [ ] Hero image (absolute URL so PyPI shows it)
-- [x] Both diagrams as committed SVGs in docs/images/, absolute URLs (they 404 until this merges to main)
-- [x] Cost line: about a cent for a first run; $5 OpenRouter minimum top-up
-- [x] Python 3.12+ (SHI-49)
-- [x] Languages + --extensions (SHI-45)
-- [x] Git-tracked files only (SHI-44), in 2b
-- [x] map is Claude Code only, and what to do without history (SHI-46)
-- [x] Not CI; skip once with SHIKHU_GATE=off
-- [x] Privacy (short) + link
-- [ ] After SHI-91 merges: the 60-second version can become "ask your agent → shikhu quiz"
-- [ ] Every command here was run end to end on 2026-11-04 (fresh-install test). Re-check any you add.
--->

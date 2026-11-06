@@ -3,28 +3,28 @@
   <desc id="desc">1. You ask your agent why save() writes to a temp file first; it answers from storage.py and you confirm, so the question is saved as a seed. 2. Shikhu sends your question, the whole file, and on a branch the diff, to Mercury 3, which writes a multiple-choice question. 3. You answer it in the terminal and rate it good, it becomes a golden question, and storage.py counts as covered. Editing the file later makes the golden stale until you re-check it.</desc>
   <style>
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
-    .h { font-size: 14px; font-weight: 600; fill: #2C2C2A; }
-    .t { font-size: 12.5px; fill: #2C2C2A; }
-    .s { font-size: 12px; fill: #5F5E5A; }
+    .h { font-size: 14px; font-weight: 700; fill: #22472B; }
+    .t { font-size: 12.5px; fill: #22472B; }
+    .s { font-size: 12px; fill: #5E6B5C; }
     .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
-    .panel { fill: none; stroke: #D3D1C7; stroke-dasharray: 4 4; }
-    .you { fill: #F1EFE8; stroke: #B4B2A9; }
-    .agent { fill: #FFFFFF; stroke: #B4B2A9; }
-    .teal { fill: #E1F5EE; stroke: #0F6E56; } .tealt { fill: #04342C; } .teals { fill: #0F6E56; }
-    .amber { fill: #FAEEDA; stroke: #854F0B; } .ambert { fill: #412402; } .ambers { fill: #854F0B; }
-    .card { fill: #FFFFFF; stroke: #888780; }
-    .ok { fill: #3B6D11; font-weight: 600; }
-    .bar { fill: #F1EFE8; } .fill { fill: #1D9E75; }
-    .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
-    .head { fill: #888780; }
+    .panel { fill: none; stroke: #D9CDB4; stroke-dasharray: 4 4; }
+    .you { fill: #F4ECDC; stroke: #C9BB9C; }
+    .agent { fill: #FBF6EC; stroke: #C9BB9C; }
+    .teal { fill: #DCEBD9; stroke: #3C7145; } .tealt { fill: #22472B; } .teals { fill: #3C7145; }
+    .amber { fill: #FAE6C2; stroke: #C2781B; } .ambert { fill: #4A2E06; } .ambers { fill: #9A5F12; }
+    .card { fill: #FBF6EC; stroke: #22472B; stroke-width: 1.5; }
+    .ok { fill: #3C7145; font-weight: 700; }
+    .bar { fill: #EADFC8; } .fill { fill: #3C7145; }
+    .arr { stroke: #8C9A8E; stroke-width: 1.5; fill: none; }
+    .head { fill: #8C9A8E; }
     @media (prefers-color-scheme: dark) {
-      .h, .t { fill: #F1EFE8; } .s { fill: #B4B2A9; }
-      .panel { stroke: #5F5E5A; }
-      .you { fill: #2C2C2A; stroke: #5F5E5A; } .agent { fill: #1f1f1e; stroke: #5F5E5A; }
-      .teal { fill: #04342C; stroke: #5DCAA5; } .tealt { fill: #E1F5EE; } .teals { fill: #9FE1CB; }
-      .amber { fill: #412402; stroke: #EF9F27; } .ambert { fill: #FAEEDA; } .ambers { fill: #FAC775; }
-      .card { fill: #1f1f1e; stroke: #888780; } .ok { fill: #97C459; }
-      .bar { fill: #444441; } .fill { fill: #5DCAA5; }
+      .h, .t { fill: #F4ECDC; } .s { fill: #B8C2B5; }
+      .panel { stroke: #3D4A3F; }
+      .you { fill: #1F2A22; stroke: #3D4A3F; } .agent { fill: #18291D; stroke: #3D4A3F; }
+      .teal { fill: #1F3A26; stroke: #7DBE85; } .tealt { fill: #E4EFE0; } .teals { fill: #A9D3AE; }
+      .amber { fill: #3D2A0C; stroke: #E9A23B; } .ambert { fill: #FAEEDA; } .ambers { fill: #F2C45F; }
+      .card { fill: #18291D; stroke: #8C9A8E; } .ok { fill: #7EE787; }
+      .bar { fill: #2A3F2F; } .fill { fill: #7DBE85; }
     }
   </style>
   <defs>
@@ -80,11 +80,11 @@
   <!-- 3. Quiz -->
   <rect class="panel" x="608" y="8" width="284" height="384" rx="12"/>
   <text class="h" x="624" y="34">3 · You quiz, coverage grows</text>
-  <rect x="624" y="50" width="252" height="78" rx="8" fill="#2C2C2A"/>
-  <text class="m" x="636" y="70" fill="#B4B2A9">$ shikhu quiz</text>
-  <text class="m" x="636" y="88" fill="#F1EFE8">Your answer: a  <tspan fill="#97C459">Correct!</tspan></text>
-  <text class="m" x="636" y="105" fill="#F1EFE8">Rate it (g/b/s): g</text>
-  <text class="m" x="636" y="121" fill="#FAC775">Golden question!</text>
+  <rect x="624" y="50" width="252" height="78" rx="8" fill="#18291D"/>
+  <text class="m" x="636" y="70" fill="#8C9A8E">$ shikhu quiz</text>
+  <text class="m" x="636" y="88" fill="#E6E6E6">Your answer: a  <tspan fill="#7EE787">Correct!</tspan></text>
+  <text class="m" x="636" y="105" fill="#E6E6E6">Rate it (g/b/s): g</text>
+  <text class="m" x="636" y="121" fill="#E3B341">Golden question!</text>
 
   <text class="t" x="624" y="156" font-weight="600">Knowledge coverage</text>
   <text class="t" x="624" y="181">storage.py</text>

@@ -3,32 +3,32 @@
   <desc id="desc">Your agent commits on a feature branch. You ask about the change, Shikhu writes questions from the diff, and you run shikhu quiz --since main. On git push, the hook checks every changed file: a file changed by more than 10 lines needs a golden question written on this branch, a smaller edit just needs its golden re-checked. If every file passes, the push goes through and you open a PR. If not, block mode stops the push and warn mode pushes with a reminder; an agent doing the push is told to hand the quiz to you and not to skip the check.</desc>
   <style>
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
-    .h { font-size: 14px; font-weight: 600; fill: #2C2C2A; }
-    .t { font-size: 12.5px; fill: #2C2C2A; }
-    .s { font-size: 12px; fill: #5F5E5A; }
-    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #2C2C2A; }
-    .ms { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #5F5E5A; }
-    .line { stroke: #888780; stroke-width: 2; fill: none; }
-    .commit { fill: #FFFFFF; stroke: #888780; stroke-width: 2; }
-    .panel { fill: #FFFFFF; stroke: #888780; }
-    .rule { stroke: #D3D1C7; }
-    .teal { fill: #E1F5EE; stroke: #0F6E56; } .tealt { fill: #04342C; } .teals { fill: #0F6E56; }
-    .amber { fill: #FAEEDA; stroke: #854F0B; } .ambert { fill: #412402; } .ambers { fill: #854F0B; }
-    .green { fill: #EAF3DE; stroke: #3B6D11; } .greent { fill: #173404; } .greens { fill: #3B6D11; }
+    .h { font-size: 14px; font-weight: 700; fill: #22472B; }
+    .t { font-size: 12.5px; fill: #22472B; }
+    .s { font-size: 12px; fill: #5E6B5C; }
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #22472B; }
+    .ms { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #5E6B5C; }
+    .line { stroke: #8C9A8E; stroke-width: 2; fill: none; }
+    .commit { fill: #FBF6EC; stroke: #3C7145; stroke-width: 2; }
+    .panel { fill: #FBF6EC; stroke: #22472B; stroke-width: 1.5; }
+    .rule { stroke: #E2D6BD; }
+    .teal { fill: #DCEBD9; stroke: #3C7145; } .tealt { fill: #22472B; } .teals { fill: #3C7145; }
+    .amber { fill: #FAE6C2; stroke: #C2781B; } .ambert { fill: #4A2E06; } .ambers { fill: #9A5F12; }
+    .green { fill: #DCEBD9; stroke: #3C7145; } .greent { fill: #22472B; } .greens { fill: #3C7145; }
     .coral { fill: #FAECE7; stroke: #993C1D; } .coralt { fill: #4A1B0C; } .corals { fill: #993C1D; }
-    .gray { fill: #F1EFE8; stroke: #888780; }
-    .ok { fill: #3B6D11; font-weight: 600; } .no { fill: #993C1D; font-weight: 600; }
-    .arr { stroke: #888780; stroke-width: 1.5; fill: none; }
-    .head { fill: #888780; }
+    .gray { fill: #F4ECDC; stroke: #C9BB9C; }
+    .ok { fill: #3C7145; font-weight: 700; } .no { fill: #993C1D; font-weight: 700; }
+    .arr { stroke: #8C9A8E; stroke-width: 1.5; fill: none; }
+    .head { fill: #8C9A8E; }
     @media (prefers-color-scheme: dark) {
-      .h, .t, .m { fill: #F1EFE8; } .s, .ms { fill: #B4B2A9; }
-      .commit { fill: #1f1f1e; } .panel { fill: #1f1f1e; } .rule { stroke: #444441; }
-      .teal { fill: #04342C; stroke: #5DCAA5; } .tealt { fill: #E1F5EE; } .teals { fill: #9FE1CB; }
-      .amber { fill: #412402; stroke: #EF9F27; } .ambert { fill: #FAEEDA; } .ambers { fill: #FAC775; }
-      .green { fill: #173404; stroke: #97C459; } .greent { fill: #EAF3DE; } .greens { fill: #C0DD97; }
+      .h, .t, .m { fill: #F4ECDC; } .s, .ms { fill: #B8C2B5; }
+      .commit { fill: #18291D; stroke: #7DBE85; } .panel { fill: #18291D; stroke: #8C9A8E; } .rule { stroke: #2A3F2F; }
+      .teal { fill: #1F3A26; stroke: #7DBE85; } .tealt { fill: #E4EFE0; } .teals { fill: #A9D3AE; }
+      .amber { fill: #3D2A0C; stroke: #E9A23B; } .ambert { fill: #FAEEDA; } .ambers { fill: #F2C45F; }
+      .green { fill: #1F3A26; stroke: #7DBE85; } .greent { fill: #E4EFE0; } .greens { fill: #A9D3AE; }
       .coral { fill: #4A1B0C; stroke: #F0997B; } .coralt { fill: #FAECE7; } .corals { fill: #F5C4B3; }
-      .gray { fill: #2C2C2A; stroke: #888780; }
-      .ok { fill: #97C459; } .no { fill: #F0997B; }
+      .gray { fill: #1F2A22; stroke: #3D4A3F; }
+      .ok { fill: #7EE787; } .no { fill: #F0997B; }
     }
   </style>
   <defs>
