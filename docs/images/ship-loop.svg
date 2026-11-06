@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 440" width="100%" role="img" aria-labelledby="title desc">
+  <title id="title">Shipping a change with the Shikhu push hook</title>
+  <desc id="desc">Your agent commits on a feature branch. You ask about the change, Shikhu writes questions from the diff, and you run shikhu quiz --since main. On git push, the hook checks every changed file: a file changed by more than 10 lines needs a golden question written on this branch, a smaller edit just needs its golden re-checked. If every file passes, the push goes through and you open a PR. If not, block mode stops the push and warn mode pushes with a reminder; an agent doing the push is told to hand the quiz to you and not to skip the check.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .h { font-size: 14px; font-weight: 700; fill: #22472B; }
+    .t { font-size: 12.5px; fill: #22472B; }
+    .s { font-size: 12px; fill: #5E6B5C; }
+    .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #22472B; }
+    .ms { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #5E6B5C; }
+    .line { stroke: #8C9A8E; stroke-width: 2; fill: none; }
+    .commit { fill: #FBF6EC; stroke: #3C7145; stroke-width: 2; }
+    .panel { fill: #FBF6EC; stroke: #22472B; stroke-width: 1.5; }
+    .rule { stroke: #E2D6BD; }
+    .teal { fill: #DCEBD9; stroke: #3C7145; } .tealt { fill: #22472B; } .teals { fill: #3C7145; }
+    .amber { fill: #FAE6C2; stroke: #C2781B; } .ambert { fill: #4A2E06; } .ambers { fill: #9A5F12; }
+    .green { fill: #DCEBD9; stroke: #3C7145; } .greent { fill: #22472B; } .greens { fill: #3C7145; }
+    .coral { fill: #FAECE7; stroke: #993C1D; } .coralt { fill: #4A1B0C; } .corals { fill: #993C1D; }
+    .gray { fill: #F4ECDC; stroke: #C9BB9C; }
+    .ok { fill: #3C7145; font-weight: 700; } .no { fill: #993C1D; font-weight: 700; }
+    .arr { stroke: #8C9A8E; stroke-width: 1.5; fill: none; }
+    .head { fill: #8C9A8E; }
+    @media (prefers-color-scheme: dark) {
+      .h, .t, .m { fill: #F4ECDC; } .s, .ms { fill: #B8C2B5; }
+      .commit { fill: #18291D; stroke: #7DBE85; } .panel { fill: #18291D; stroke: #8C9A8E; } .rule { stroke: #2A3F2F; }
+      .teal { fill: #1F3A26; stroke: #7DBE85; } .tealt { fill: #E4EFE0; } .teals { fill: #A9D3AE; }
+      .amber { fill: #3D2A0C; stroke: #E9A23B; } .ambert { fill: #FAEEDA; } .ambers { fill: #F2C45F; }
+      .green { fill: #1F3A26; stroke: #7DBE85; } .greent { fill: #E4EFE0; } .greens { fill: #A9D3AE; }
+      .coral { fill: #4A1B0C; stroke: #F0997B; } .coralt { fill: #FAECE7; } .corals { fill: #F5C4B3; }
+      .gray { fill: #1F2A22; stroke: #3D4A3F; }
+      .ok { fill: #7EE787; } .no { fill: #F0997B; }
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9 z" class="head"/>
+    </marker>
+  </defs>
+
+  <!-- Row 1: the branch, ask, quiz, push -->
+  <text class="s" x="14" y="28">main</text>
+  <path class="line" d="M50 24 L250 24"/>
+  <path class="line" d="M70 24 C 90 24, 90 70, 110 70 L250 70"/>
+  <circle class="commit" cx="140" cy="70" r="7"/>
+  <circle class="commit" cx="180" cy="70" r="7"/>
+  <circle class="commit" cx="220" cy="70" r="7"/>
+  <text class="h" x="96" y="104">1 · Your agent codes</text>
+  <text class="s" x="96" y="122">commits on a feature branch</text>
+
+  <line class="arr" x1="256" y1="70" x2="284" y2="70" marker-end="url(#a)"/>
+  <rect class="teal" x="288" y="40" width="190" height="60" rx="10"/>
+  <text class="t tealt" x="302" y="63" font-weight="600">2 · Ask about the change</text>
+  <text class="s teals" x="302" y="84">questions from the diff</text>
+
+  <line class="arr" x1="480" y1="70" x2="508" y2="70" marker-end="url(#a)"/>
+  <rect class="teal" x="512" y="40" width="190" height="60" rx="10"/>
+  <text class="t tealt" x="526" y="63" font-weight="600">3 · Quiz on the change</text>
+  <text class="m teals" x="526" y="84">quiz --since main</text>
+
+  <line class="arr" x1="704" y1="70" x2="732" y2="70" marker-end="url(#a)"/>
+  <rect class="amber" x="736" y="40" width="150" height="60" rx="10"/>
+  <text class="m ambert" x="750" y="63" font-weight="700">git push</text>
+  <text class="s ambers" x="750" y="84">the hook checks</text>
+
+  <!-- Row 2: what the hook checks -->
+  <path class="arr" d="M811 102 L811 122 L300 122 L300 140" marker-end="url(#a)"/>
+  <rect class="panel" x="14" y="144" width="560" height="212" rx="12"/>
+  <text class="h" x="30" y="170">4 · The hook checks every file the branch changed</text>
+  <text class="s" x="30" y="196">file</text>
+  <text class="s" x="170" y="196">changed</text>
+  <text class="s" x="260" y="196">needs</text>
+  <text class="s" x="460" y="196">status</text>
+  <line class="rule" x1="30" y1="205" x2="558" y2="205"/>
+  <text class="m" x="30" y="228">app/todo.py</text>
+  <text class="ms" x="170" y="228">+22 lines</text>
+  <text class="t" x="260" y="228">a golden written on this branch</text>
+  <text class="t ok" x="460" y="228">✓ golden</text>
+  <text class="m" x="30" y="256">app/storage.py</text>
+  <text class="ms" x="170" y="256">2 lines</text>
+  <text class="t" x="260" y="256">its golden re-checked</text>
+  <text class="t ok" x="460" y="256">✓ re-checked</text>
+  <text class="m" x="30" y="284">app/cli.py</text>
+  <text class="ms" x="170" y="284">14 lines</text>
+  <text class="t" x="260" y="284">a golden written on this branch</text>
+  <text class="t no" x="460" y="284">✗ not yet</text>
+  <line class="rule" x1="30" y1="298" x2="558" y2="298"/>
+  <text class="s" x="30" y="320">Changed more than 10 lines? Re-checking an old question isn't enough:</text>
+  <text class="s" x="30" y="338">you need one written about the change.</text>
+
+  <!-- Outcomes -->
+  <rect class="green" x="596" y="144" width="290" height="56" rx="10"/>
+  <text class="t greent" x="610" y="166" font-weight="600">Every file ✓</text>
+  <text class="s greens" x="610" y="186">the push goes through. Open your PR.</text>
+  <rect class="coral" x="596" y="212" width="290" height="70" rx="10"/>
+  <text class="t coralt" x="610" y="234" font-weight="600">Any file ✗</text>
+  <text class="s corals" x="610" y="254">block: the push stops until you quiz</text>
+  <text class="s corals" x="610" y="272">warn: it pushes, with a reminder</text>
+  <rect class="gray" x="596" y="294" width="290" height="70" rx="10"/>
+  <text class="t" x="610" y="316" font-weight="600">Your agent pushing?</text>
+  <text class="s" x="610" y="336">It's told to hand the quiz to you,</text>
+  <text class="s" x="610" y="354">and never to skip the check.</text>
+
+  <line class="arr" x1="576" y1="172" x2="592" y2="172" marker-end="url(#a)"/>
+  <line class="arr" x1="576" y1="247" x2="592" y2="247" marker-end="url(#a)"/>
+  <text class="s" x="716" y="20">quiz, then push again</text>
+  <path class="arr" d="M886 247 L894 247 L894 6 L607 6 L607 36" marker-end="url(#a)"/>
+  <text class="s" x="14" y="396">Runs on your machine, against your own quiz history (coverage.db). It checks your pushes; it isn't a CI check.</text>
+  <text class="s" x="14" y="418">Switch modes any time: git config shikhu.gate.mode warn | block · skip once: SHIKHU_GATE=off git push</text>
+</svg>

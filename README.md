@@ -1,247 +1,205 @@
-# Shikhu
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/logo-dark.png">
+    <img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/logo.png" alt="shikhu" width="280">
+  </picture>
+</p>
 
 [![CI](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml/badge.svg)](https://github.com/arjunpatel7/shikhu/actions/workflows/ci.yml)
 
-Shikhu helps you learn your codebases that you generate with AI.
+**Finally, understand the code your agents write. Measure, track, and update your knowledge coverage before every push. Fight comprehension debt, cognitive surrender and skill atrophy.**
 
-It's a **command-line tool** plus a companion **`/shikhu-study` skill** for your coding agent: the CLI generates quizzes from your code and tracks your understanding, and the skill tutors you through the files you want to learn. A second skill, **`/shikhu-inquiry`**, answers questions you ask about your code and banks them as quiz seeds.
+Shikhu is a tool to help developers understand the codebases their agents write. Use Shikhu to measure your conceptual understanding of your codebase, and learn about changes made in branches. You can even include Shikhu during development to enforce knowledge checks, to prevent cognitive surrender, comprehension debt, and skill atrophy.
 
-Use shikhu to study your codebase, track your understanding, and increase your understanding of your code. Shikhu does this by learning about your files, generating quizzes for you to take, and even by helping you study the code after you make it.
+## Why Shikhu?
 
-Conceptual understanding is measured by **knowledge coverage** — the share of your codebase backed by *golden questions* (questions you answered correctly *and* confirmed actually test understanding of the file). Three goldens per file = fully covered.
+Agents write code faster than you can read it. You skim the diff, the tests pass, it ships, and a week later you can't explain how it works. That's comprehension debt, and it compounds with every feature.
 
-Think test coverage, but for your brain!
+Shikhu turns the questions you already ask your agent into short quizzes on your own code, and tracks which files you actually understand. That's your **knowledge coverage**. Think test coverage, but for your brain.
 
-## Getting Started
+**What it's good for:**
+- **Learning a codebase your agent built.** See where your questions have been, and quiz yourself on the files that matter.
+- **Understanding every change before you ship it.** A git hook checks that you've been quizzed on what your branch changed, before you push.
+- **Knowing where you stand.** Coverage shows which files you've proven you understand, and which you've never looked at.
 
-Prerequisites:
-- An **OpenRouter API key** (required). Shikhu calls models through [OpenRouter](https://openrouter.ai/); by default it uses Inception's fast Mercury 3 diffusion model for question generation and summarization. Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
-- A **skill-compatible coding agent** like Claude Code, Codex, or Cursor (strongly recommended). The core loop — `refresh`, `quiz`, `coverage` — runs entirely in your terminal, but Shikhu really shines when paired with its skills (installed in step 2): `/shikhu-inquiry` banks the questions you ask about your code, and `/shikhu-study` turns "I don't get this file" into a guided walkthrough, *and* both feed your weak spots back into future quizzes.
+**What's the catch?** A few minutes per PR, and a few cents for some LLM calls underneath. Wanna learn more? Grab an OpenRouter key and keep reading!
 
-### 1. Install
+<img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/hero.png" alt="Your agent wrote it. Can you explain it? Shikhu turns the questions you ask your agent into quick checks on your own code." width="100%">
+
+## Get started with Shikhu
+
+Get started quickly with an existing codebase. All you need is an OpenRouter key and a git repo. By the way, Shikhu works best inside Claude Code! Run `shikhu init` and `shikhu quiz` in your own terminal, since they ask you things, and let Claude handle the rest.
+
+Navigate to your codebase and initialize Shikhu:
 
 ```bash
 uv tool install shikhu
+cd your-repo
+shikhu init                          # asks for your OpenRouter key, and whether to check each git push
+shikhu summarize                     # indexes your code (one cheap model call per file)
+shikhu map                           # finds the questions you already asked Claude Code here, picks a file
+shikhu generate-from-study <file>    # turns those questions into a quiz on the file map picked
+shikhu quiz --file <file>
 ```
 
-This puts `shikhu` on your `PATH` in an isolated environment (no clash with your project's dependencies). `cd` into any repo and the commands below just work — each repo gets its own `coverage.db` and `.quizignore`. (`pipx install shikhu` or `pip install shikhu` into a virtualenv work too.)
+No Claude Code history in this repo? Swap the last three lines for: ask your agent a question about your code (the `/shikhu-inquiry` skill writes quiz questions from it), then run `shikhu quiz`. Or run `shikhu refresh` for general questions on every file.
 
-`shikhu init` (next step) asks for your OpenRouter API key once and saves it to `~/.config/shikhu/.env`, readable only by you, so every repo can use it. An `OPENROUTER_API_KEY` exported in your shell or set in a repo's `.env` overrides the saved one.
+**Check what you know, and where you should learn more**
 
-> Upgrading from 0.1.x? Shikhu no longer calls the Inception API directly, so `INCEPTION_API_KEY` is ignored — add `OPENROUTER_API_KEY` instead.
+Shikhu installs its skills, summarizes all the files in your codebase with Inception's fast Mercury diffusion model, and then uses Jev from TypeSafe AI to explore your previous conceptual queries. Each run costs a tiny amount of cents!
 
-### 2. Initialize (this installs the skills)
+The map command allows you to see what you've already tried to learn about. Notice anything here? Try to improve your conceptual engagement by asking more questions about your code.
+
+## How it works
+
+<img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/learn-loop.svg" alt="Ask your agent about your code, Shikhu writes questions from it, you take the quiz, and a right answer you rate good becomes a golden question that raises your coverage." width="100%">
+
+It turns out that asking good questions about your codebase is a great way to keep learning about what it does. Shikhu uses a variety of tactics to measure, and create the habit of, asking good questions about your codebase. 
+
+Specifically, Shikhu identifies conceptual questions, which are likely to indicate discussions about your codebase.
+
+Shikhu keeps those questions, writes multiple-choice questions from them and your actual code, and quizzes you in the terminal. For each question, you can choose to accept it or reject it. Accepted, correctly answered questions are considered "golden", which means they confirm understanding of the requisite file.
+
+More golden answers means more understanding of your codebase.
+
+## Get started (the long way!)
+
+**You'll need:**
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/) (or pipx/pip)
+- An [OpenRouter API key](https://openrouter.ai/keys). A first run on a small repo costs about a cent. New OpenRouter accounts need a $5 minimum top-up.
+- A coding agent that supports skills: Claude Code, Codex, Cursor, OpenCode
+- Code in `.py`, `.js`, `.ts`, `.jsx`, `.tsx`, `.html` or `.css`. Other languages work with `--extensions` (see the [guide](https://github.com/arjunpatel7/shikhu/blob/main/docs/guide.md)).
+
+### 1. Install and set up a repo
 
 ```bash
+uv tool install shikhu
+cd your-repo
 shikhu init
 ```
 
-This creates the local database (`coverage.db`, added to your `.gitignore`), a `.quizignore` file (like `.gitignore`, but for quiz generation; list config or doc files you don't want quizzed on), and **installs the skills, `/shikhu-inquiry`, `/shikhu-study` and `/shikhu` (how to use shikhu itself), into your agent's skills directory**. Restart your agent if the skills don't show up right away.
+`init` asks two things:
+- **Your OpenRouter key** (typing is hidden). It's saved once in `~/.config/shikhu/.env`,
+  readable only by you, and every repo uses it. A key in your shell or the repo's `.env` wins.
+- **Check your understanding before each git push?** `w` warn, `b` block, or `s` skip
+  (see [Ship with Shikhu](#ship-with-shikhu-include-shikhu-during-development)).
 
-Skills go into `.claude/skills/` (Claude Code) and/or `.agents/skills/` (Codex, Cursor, OpenCode and others), whichever already exist in the repo, or both if neither does. A few related options:
-- `shikhu init --no-skill`: set up without installing the skills.
-- `shikhu install-skill`: install them later, or re-install after upgrading Shikhu so the skills match the CLI.
-- `shikhu install-skill --global`: install into your home directory so they're available in every project.
+It also creates `coverage.db` (gitignored), a `.quizignore`, and installs three skills for your
+agent: `/shikhu-inquiry`, `/shikhu-study` and `/shikhu`.
 
-### 3. Let Shikhu index your code
+### 2a. An existing codebase
+
+Follow [Get started with Shikhu](#get-started-with-shikhu). No Claude Code history? Two other ways in:
+
+- Ask your agent about your code. `/shikhu-inquiry` answers and banks the question; then
+  `shikhu generate-from-study <file>` and `shikhu quiz --file <file>`. Our favorite: the quiz is about what *you* wanted to know.
+- Or `shikhu refresh` for general questions on every file, then `shikhu quiz`.
+
+### 2b. A new project
+
+Starting fresh? Perfect. Make sure your project is a git repo first (`git init`, before `shikhu init`, so it can install the push hook). Shikhu only reads files git tracks, so `git add` and commit as you build.
+
+Been chatting with Claude Code in this folder already? Bring those conversations in, so the questions you already asked count:
 
 ```bash
 shikhu summarize
-```
-
-This writes a cached, model-written summary for each tracked file. The skills and `shikhu map` use those summaries to work out which files a question is about. It makes one model call per file, and it only re-runs for files whose contents changed.
-
-### 4. See where your questions have been
-
-```bash
 shikhu map
 ```
 
-If you've been using Claude Code in this repo, you've probably already asked it plenty about your code. `shikhu map` reads those past sessions, picks out the questions you asked about this codebase, and shows which files they were about next to your coverage:
+From there, build with your agent as usual. Every push asks whether you've been quizzed on what changed, so you learn your codebase as it grows, one feature at a time.
 
-```
-Read 65 transcripts: 255 distinct past prompts, 255 new since the last map.
-255 prompt(s) to score. Each is sent with your 25 file summaries to Jev through OpenRouter: about $0.11 on your key.
-Score them now? [y/N]: y
-> Scored 255 prompt(s) for $0.0877.
+## Ship with Shikhu: Include Shikhu during development
 
-Your question map
-  11 past questions about this codebase (from 255 past prompts)
-  Coverage: 0/25 files fully covered (0%)
+<img src="https://raw.githubusercontent.com/arjunpatel7/shikhu/main/docs/images/ship-loop.svg" alt="Code on a branch, ask about the change, shikhu quiz --since main, then git push: quizzed means the push goes through; not quizzed means block stops it or warn reminds you." width="100%">
 
-Asked about most
-  file                   questions  golden
-  src/app/store.py               4     0/3
-  src/app/cli.py                 3     0/1
-  src/app/generator.py           2     0/3
+This is where Shikhu shines. By adding Shikhu to your dev workflow, you can ensure you take a bit of time to continue developing your understanding of your agent's code every time you push. Keep building with your agent, ask it about what it just changed, take a short quiz, then push.
 
-Not asked about yet (13 files, largest first — worth a look later)
-  src/app/staleness.py  (166 lines)
-  src/app/systemone.py  (149 lines)
-
-Start here: src/app/store.py
-  3 of your questions were mainly about it, it has 0/3 golden, and it's 88 lines. Ask about it with /shikhu-inquiry.
-  Or quiz on what you already asked: shikhu generate-from-study src/app/store.py, then shikhu quiz --file src/app/store.py.
-```
-
-*(Illustrative output; your file names and counts will differ.)* A few things to know:
-- **Scoring is the one paid step.** Each past prompt goes to Jev, a fast judgment model, through OpenRouter on your key. The map shows the estimate and asks first; `--dry-run` stops before sending anything. The first run scores your whole history, and later runs only score new prompts.
-- **"Start here" is meant to be easy.** It picks the shortest file you've asked about a lot that isn't covered yet. The files you've never asked about are probably the hardest ones, so they're listed for later rather than suggested first.
-- **What you already asked can become a quiz.** The questions the map found count as seeds for `shikhu generate-from-study`, just like ones you ask through `/shikhu-inquiry` (step 6), so you can skip straight to a quiz on them.
-- **It only reads Claude Code sessions** run from this directory. If you use another agent, `shikhu coverage` shows your starting point instead.
-
-### 5. Ask a question about your code
-
-Start with the file the map picked. In your agent, just ask, or invoke the skill explicitly:
-
-```
-/shikhu-inquiry how are we storing quizzes?
-```
-
-The agent finds the files that answer your question, reads them, and explains the answer with the files up front and `path:line` citations. It ends with one line, *"Was that the right place to be looking?"*, and your reply banks the question against those files. Questions that span several files are credited to each of them.
-
-Casual questions mid-task ("what's the pre-push hook?", "why do I gotta do that venv thing?") often trigger the skill on their own. Asking doesn't earn coverage by itself. It just gives Shikhu a question worth quizzing you on.
-
-### 6. Quiz yourself on the answer
+Shikhu is designed to feel seamless and fit into existing development workflows. With the skill installed, continue building new features on branches, while asking questions and studying files. Your dev convos become fertile ground for review quizzes, which help benchmark your understanding. In other words, build the habit of learning while you code, without sacrificing the speed of agents.
 
 ```bash
-shikhu generate-from-study src/app/store.py
-shikhu quiz --file src/app/store.py
+# on your branch, after asking your agent about the change:
+shikhu quiz --since main
+git push
 ```
 
-`generate-from-study` turns the questions you asked into multiple-choice questions that test those same concepts (default 3; change it with `--n`). `quiz` then asks them in your terminal. After each answer you can rate the question:
+Asking `/shikhu-inquiry` about your change on a branch writes questions aimed at the diff
+(`shikhu generate-from-study <file> --since main`). The hook checks that each changed file has a
+fresh golden question:
 
-- Answer **correctly**, rate it **good** (`g`), and confirm it would test someone's understanding of the file → it becomes a **golden question**.
-- Rate it **bad** (`b`) or skip it (`s`) and it can't become golden.
+| | warn | block |
+|---|---|---|
+| Not quizzed yet | pushes, and lists what you haven't been quizzed on | stops the push |
+| Your agent is pushing | told to have you run `shikhu quiz --since main` | told not to skip it, and to hand the quiz to you |
+| Switch | `git config shikhu.gate.mode block` | `git config shikhu.gate.mode warn` |
 
-If you ask the same thing again later, Shikhu notices it already has a question for it and moves that question to the front of your next quiz instead of generating a duplicate.
+Skip once: `SHIKHU_GATE=off git push`. Add the hook later: `shikhu install-hook`.
 
-### 7. Watch coverage go up
+The hook runs on your machine, against your local `coverage.db`, so it checks *your* pushes. It's not a CI check, and it doesn't block merges on GitHub.
 
-```bash
-shikhu coverage
-```
+## Your agent's skills
 
-```
-╭──────────────────────── Knowledge Coverage ────────────────────────╮
-│ 1/25 files fully covered  |  0 in progress  |  24 not started      │
-╰────────────────────────── 4% complete ─────────────────────────────╯
-```
+- `/shikhu-inquiry`: ask about your code; it answers with the files that matter and banks the
+  question as a quiz seed. Often triggers on its own.
+- `/shikhu-study <file>`: a guided walkthrough of one file.
+- `/shikhu`: how to use Shikhu itself, and what to do when a push is blocked.
 
-*(Illustrative output.)* A file counts as fully covered once it reaches its golden target: **3 golden questions**, or **1** for short files (under 75 non-blank lines), which run out of distinct things to ask sooner. Until then it shows as *in progress*, and its `n/target golden` count in the study queue ticks up with each golden. The headline number moves one file at a time, so it's a slow, honest climb.
+## Privacy
 
-## Other ways in
+- Your quiz history lives in `coverage.db` in the repo, on your machine. It's gitignored.
+- File contents go to OpenRouter (by default Inception's Mercury 3) to write summaries and
+  questions, under your key. `.quizignore` keeps files out.
+- `shikhu map` reads your local Claude Code transcripts for this repo, and sends past prompts
+  to OpenRouter for scoring only after showing the cost and asking.
 
-### Study a file with `/shikhu-study`
+Details: [Privacy & data](https://github.com/arjunpatel7/shikhu/blob/main/docs/guide.md#privacy--data).
 
-When a quiz shows you a file you don't really understand, use `/shikhu-study <file>` in your agent. It loads the cached summary, walks you through the file section by section, and logs every conceptual question you ask. Then:
+## Coming soon
 
-```bash
-shikhu generate-from-study path/to/file.py
-shikhu quiz --file path/to/file.py
-```
+- **Guides for your team.** Use these learnings to help others onboard quickly: turn your golden questions into a learning path for teammates or open source contributors.
+- **A benchmark of your own knowledge.** Track it over time, and use it to compare agent setups.
+- **Smarter quizzes.** Automatic checks that catch a flawed question before you ever see it.
+- **No API key needed.** Sign in and go.
 
-This reinforces exactly the gaps you surfaced, not generic file-level questions. `/shikhu-study` is the deliberate route; `/shikhu-inquiry` is the same destination with no ceremony.
+## More
 
-### Generate a full question bank with `refresh`
+- [The full guide](https://github.com/arjunpatel7/shikhu/blob/main/docs/guide.md): every command,
+  how coverage works, configuration, `/shikhu-study`, `refresh`, other languages
+- Love the repo and have some ideas? Open an issue! We aren't accepting PRs at this time.
 
-```bash
-shikhu refresh
-shikhu quiz
-```
+## FAQ
 
-`refresh` scans your tracked files and generates a batch of general questions for every one of them, through OpenRouter (files matching `.quizignore` are skipped). Under the hood it runs two passes in parallel: **summaries** and **questions** (one batch per file). Both skip files whose content hash and prompt version haven't changed, so re-running after a small edit only regenerates the files that changed. Tune parallelism with `--summary-workers` (default 8), and run just the summaries with `shikhu summarize`.
+**Why quizzes? Quizzes are boring!**
 
-`shikhu quiz` takes `--n <int>` (questions per round, default 5), `--file <path>` (one file only) and `--since <ref>` (only files changed since a git ref).
+Yeah, I know, but quizzes are proven to actually develop understanding. They typically take about 20 seconds to answer, and the tiny habit you form reviewing will slowly help build understanding.
 
-### Review just your branch before shipping
+Additionally, developing and maintaining quiz questions yourself while you use Shikhu is really neat. You are basically curating a validated benchmark/question set/onboarding guide over your own codebase as a byproduct of you working. That idea is really powerful, and one that I want to continue developing with Shikhu. Imagine being able to onboard teammates, or benchmark agents, using an up-to-date codebase specific assessment. Kinda neat!
 
-Before you open a PR, focus on the files the branch actually changed:
 
-```bash
-shikhu refresh --since main            # generate questions only for changed files
-shikhu quiz --since main               # quiz only on changed files (re-validations first)
-shikhu coverage --since main --check   # exit 1 if a changed file has no fresh golden question
-```
+**Why should I care? Won't agents know everything?**
 
-`--since` takes any git ref and compares against where your branch split off, plus uncommitted edits. `--check` requires 1 fresh golden per file by default; raise the bar with `--min 3`. With `--since`, a file changed by more than 10 lines only counts goldens on questions written since your branch started, so re-checking an old question can't pass it; ask about the change with `/shikhu-inquiry` and quiz on the new questions. `quiz` and `coverage` also re-check staleness on startup, so a file you just edited stops counting as covered until you re-validate it. Everything reads your local `coverage.db`, so it runs on your machine, not in CI. To run the check on every push, use `shikhu install-hook` (`shikhu init` offers it): **warn** lists the changes you haven't been quizzed on and pushes anyway, **block** stops the push until you have. Switch with `git config shikhu.gate.mode block`; skip once with `SHIKHU_GATE=off git push`.
+This is super tempting to feel, but I believe that we can't give agents all the power here. Shikhu offers a path to maintain conceptual understanding (generally what the codebase does at a high level) while deferring specifics to agents. By maintaining conceptual, high level understanding, you can more easily action on your codebase rather than throwing more tokens at the problem.
 
-## Concepts
+This actually makes you more efficient at using agents too! If you can precisely diagnose and articulate the problem, you can direct your agents much faster. Or, you can even estimate how well your agents know your codebase... compared to you!
 
-- **Golden questions:** a question you answered correctly, rated good, and confirmed tests real understanding of the file. Three per file = fully covered, or one for short files (under 75 non-blank lines). `refresh` and `generate-from-study` only generate toward that target, so short files don't pile up near-duplicate questions.
-- **Cross-file questions:** a question that spans several files is quizzed once and credits each file it touches, so one good question can move more than one file.
-- **Questions are used once:** each question you ask seeds one quiz question. Ask it again and the existing question is re-queued to the front of your next quiz, not duplicated.
-- **Staleness:** when a file changes (detected via SHA-256 hashing), its questions are marked stale on the next `refresh`, `quiz` or `coverage`. Stale questions stay in the database (nothing is deleted) and `refresh` generates a fresh batch on top.
-- **Re-validation:** if a file changes after you mastered it, its goldens are flagged for re-validation and come up first in your next quiz. Answer correctly and they go back to golden; answer wrong and they lose golden status, and your coverage updates accordingly.
+**Who made this?**
 
-## All Commands
+I did! I'm Arjun, I'm currently a senior developer advocate at Pinecone. I enjoy learning and teaching others about AI, and also using coding agents. But, I learned that I was losing my ability to learn while coding, so I wanted something that could help nudge me to keep learning. I hope Shikhu helps you to keep learning too! You can follow me on [LinkedIn](https://www.linkedin.com/in/arjunkirtipatel/), [Bluesky](https://bsky.app/profile/arjunkirtipatel.bsky.social), or [X](https://x.com/ArjunPatel777). I have a newsletter too called Answering Machines, which you can follow [here](https://buttondown.com/answeringmachines).
 
-| Command | What it does |
-|---------|-------------|
-| `shikhu init` | Set up the database, check API keys, create `.quizignore`, install the skills (`--no-skill` to skip) |
-| `shikhu install-skill` | Install the `/shikhu-inquiry` and `/shikhu-study` skills (`--global` for all projects) |
-| `shikhu install-hook` | Check your understanding before each `git push` (`--mode warn` or `block`; never replaces another tool's hook) |
-| `shikhu coverage` | Print the knowledge-coverage report and a study queue (`--queue N` sets its length, `0` hides it) |
-| `shikhu map` | Show where your past Claude Code questions have been, next to coverage, and pick a file to start on. Scores new past prompts with Jev after showing the cost (`--dry-run` to only estimate, `--yes` to skip the prompt) |
-| `shikhu coverage --since main --check [--min N]` | Report changed files; exit 1 if any has fewer than N fresh goldens (default 1) |
-| `shikhu summarize` | Parallel model-written summaries for every tracked file (`--workers`, `--extensions`) |
-| `shikhu summarize --file path.py` | Force-regenerate the summary for one file |
-| `shikhu generate-from-study path.py` | Generate quiz questions (`--n`, default 3) seeded by the questions you asked about that file, including past ones `shikhu map` found |
-| `shikhu quiz` | Take a quiz (default 5 questions) |
-| `shikhu quiz --n 10` | Quiz with 10 questions |
-| `shikhu quiz --file path.py` | Quiz on a single file |
-| `shikhu quiz --since main` | Quiz only on files changed since `main` |
-| `shikhu refresh` | Staleness check, then regenerate stale questions and summaries |
-| `shikhu refresh --since main` | Generate summaries and questions only for files changed since `main` |
-| `shikhu clean` | Delete the database (asks for confirmation; `--yes` skips it) |
+**How does Shikhu use Jev?**
 
-The skills call a few more commands behind the scenes. You normally won't run these yourself:
+Jev is TypeSafe's judgment model, which Shikhu calls through OpenRouter. Instead of writing text, it answers typed yes/no questions with a calibrated probability, so Shikhu can set a threshold instead of parsing an answer. It's used in three places:
+- **`shikhu map`:** for each past prompt in your Claude Code history, Jev judges whether it was a question about this codebase, and how likely it is to be about each file. All the files are judged in one request, so it's cheap. The first run scores your whole history, later runs only new prompts, and each run stops at a $1 cap (`SHIKHU_JEV_BUDGET_USD`).
+- **`/shikhu-inquiry`:** when you ask your agent a question, Jev first checks whether this repo can answer it at all, then scores each file, so the agent knows where the answer lives.
+- **`shikhu generate-from-study`:** before writing new questions, Jev checks whether an unanswered quiz question already tests what you asked. If one does, that question moves to the front of your next quiz instead of getting a near-duplicate.
 
-| Command | Used by | What it does |
-|---------|---------|-------------|
-| `shikhu inquiry-packet "<question>"` | `/shikhu-inquiry` | Find the tracked files that answer a question, with the evidence why (`--json` for machine-readable output) |
-| `shikhu record-inquiry <file> "<question>" --confirmed\|--rejected` | `/shikhu-inquiry` | Record the exchange so it can seed a quiz (`--also <file>` repeats for each additional file; `--score`, `--runner-up`, `--runner-up-score` record the packet's ranking) |
-| `shikhu study-context <file>` | `/shikhu-study` | Print a file's cached summary and prior review records |
-| `shikhu log-review <file>` | `/shikhu-study` | Start (`--start`) or close (`--review-id`, `--summary`, `--transcript`, `--notes`) a study session |
-| `shikhu log-study-question <review_id> "<question>"` | `/shikhu-study` | Record a question asked during a study session (`--conceptual/--not-conceptual`, `--answered/--unanswered`) |
+Jev sees your questions, past prompts, file summaries and quiz questions, never your source code.
 
-## Privacy & Data
+**How does Shikhu use Mercury?**
 
-Everything Shikhu knows lives in one local SQLite file, `coverage.db`, in the repo you run it from. Nothing is uploaded anywhere. Four things are worth knowing:
+Mercury 3 is Inception's diffusion language model: instead of writing one token at a time, it refines the whole answer in parallel, which makes it fast and cheap. Shikhu calls it through OpenRouter for two jobs:
+- **Summaries** (`shikhu summarize`): a short summary of each file, cached and only redone when the file changes.
+- **Quiz questions** (`refresh`, `generate-from-study`): written as structured JSON (a question, four choices, one answer) from your code and the questions you asked. The writer follows rules for exactly one true answer and similar-length choices, and on a branch it sees the diff so the questions are about your change.
 
-- **File contents are sent to OpenRouter**, which routes them to the provider behind the model in use (by default Inception, for Mercury 3), to generate questions and summaries — that, plus the past prompts `shikhu map` scores (below), is the only data that leaves your machine, under your own API key. Use `.quizignore` to exclude anything you don't want sent. Setting `SHIKHU_MODEL` sends your code to whichever provider serves that model instead.
-- **Requests identify shikhu to OpenRouter** by name and repo URL ([app attribution](https://openrouter.ai/docs/app-attribution)), which is what lists shikhu on OpenRouter's public app rankings. Only the app name and URL are sent; nothing about you, your key, or your code.
-- **Shikhu reads your local Claude Code transcripts** for the current project (`~/.claude/projects/...`) when you run `shikhu map`, to find conceptual questions you've asked, and stores them in `coverage.db` to seed better quiz questions. Apart from `shikhu map` (below), these prompts never leave your machine — but it's one more reason `coverage.db` must stay out of git. `shikhu init` adds it to your `.gitignore` automatically.
-- **`shikhu map` sends your past prompts to OpenRouter** for Jev to score: each prompt, the end of the assistant reply it followed, and your file summaries. It shows the cost and asks before sending anything, and `--dry-run` sends nothing.
+Mercury is super super fast and cheap, so it's great for summarizing code and generating good questions.
 
-## Configuration
-
-### `.quizignore`
-
-Controls which files are skipped during generation:
-```
-# Skip these
-*.lock
-.claude/
-tests/
-deprecated/
-```
-
-### Environment Variables
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `OPENROUTER_API_KEY` | Yes | OpenRouter API for question and summary generation. Read from your shell, then the repo's `.env`, then the key `shikhu init` saved in `~/.config/shikhu/.env` |
-| `SHIKHU_JEV_BUDGET_USD` | No | Spending cap for Jev calls per command run (default `1.00`). `shikhu map` stops at the cap, keeps what it scored, and picks up where it left off next run. |
-| `SHIKHU_MODEL` | No | **Experimental, unsupported.** Override the OpenRouter model id (default `inception/mercury-3`). The model must support structured outputs; reasoning models may fail with truncated responses. |
-
-## Tech
-
-- Python 3.12+, managed with [uv](https://docs.astral.sh/uv/)
-- [OpenRouter](https://openrouter.ai/) + [Mercury 3](https://www.inceptionlabs.ai/) (default model) for question generation
-- [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) for the CLI
-- SQLite for local storage
-- SHA-256 file hashing for staleness detection
-
-## Love the repo and have some ideas?
-Feel free to open an issue! We aren't accepting PRs at this time.
+You can point Shikhu at another model with `SHIKHU_MODEL` (experimental; it needs to support structured outputs).
