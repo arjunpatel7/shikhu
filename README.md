@@ -42,7 +42,7 @@ shikhu generate-from-study <file>    # turns those questions into a quiz on the 
 shikhu quiz --file <file>
 ```
 
-No Claude Code history in this repo? Swap the last three lines for `shikhu refresh`, then `shikhu quiz`.
+No Claude Code history in this repo? Swap the last three lines for: ask your agent a question about your code (the `/shikhu-inquiry` skill writes quiz questions from it), then run `shikhu quiz`. Or run `shikhu refresh` for general questions on every file.
 
 **Check what you know, and where you should learn more**
 
