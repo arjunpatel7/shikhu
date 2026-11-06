@@ -120,12 +120,19 @@ same lack of ceremony as a confirmation.
 If the user ignores the confirm and moves on to something else, **record nothing** and drop
 it. Don't re-ask, and don't record a confirmation they didn't give.
 
-## 5. On a branch, write the questions the push gate needs
+## 5. Write the quiz questions
 
-If they **confirmed** and the repo is on a branch other than its default branch, they're
-shipping a change, and the push gate will ask whether they understand it. Turn the question
-into quiz questions about the change right away, once per file you recorded (the top file
-and each `--also` file):
+If they **confirmed**, turn the question into quiz questions right away, once per file you
+recorded (the top file and each `--also` file), so `shikhu quiz` has something to ask.
+
+On the default branch (`main`, or whatever the repo uses):
+
+```bash
+shikhu generate-from-study "<file>"
+```
+
+On any other branch, they're shipping a change, and the push gate will ask whether they
+understand it. Ask about the change instead:
 
 ```bash
 base=$(git config --get shikhu.gate.base || echo main)   # the branch the gate compares against
@@ -137,9 +144,15 @@ are about the change, not the rest of the file; a file the branch didn't touch f
 to the whole file on its own. Each call is one quick model call on their OpenRouter key
 (a fraction of a cent). Then say one line and nothing more:
 
-> *"Wrote quiz questions on your change. Run `shikhu quiz --since <base>` when you're ready."*
+> *"Wrote quiz questions on that. Run `shikhu quiz` when you're ready."*
 
-Skip this after a rejection, and on the default branch (there, step 6's one line is enough).
+On a branch, say `shikhu quiz --since <base>` instead.
+
+If `generate-from-study` fails (most often: no OpenRouter key yet), say in one line what
+to fix, e.g. *"Couldn't write the questions: run `shikhu init` to add your OpenRouter key."*
+Don't retry.
+
+Skip this step after a rejection, or when they ignored the confirm.
 
 ## 6. Don't oversell what was earned
 
@@ -147,11 +160,8 @@ Confirming validates the **question**, not the user's knowledge — they just as
 is mild evidence they *didn't* know. Knowledge credit comes only from answering it later in
 a quiz. So never say "that's covered now" or "coverage went up."
 
-At most, one line if it feels natural:
-
-> *"Banked — `shikhu generate-from-study src/shikhu/store.py` will turn that into a quiz question."*
-
-Usually say nothing at all. The recording is bookkeeping, not an achievement.
+Step 5's one line is all you say about it. The recording is bookkeeping, not an
+achievement.
 
 ## When not to use this
 

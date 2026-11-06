@@ -21,8 +21,8 @@ shikhu init          # database, skills, asks for the OpenRouter key and the pus
 shikhu summarize     # one cheap model call per file; lets shikhu tell what a question is about
 shikhu map           # Claude Code users: where their past questions were; picks a file to start
 ```
-Then they ask their agent about the code (/shikhu-inquiry banks the question),
-`shikhu generate-from-study <file>`, and `shikhu quiz --file <file>`.
+Then they ask their agent about the code (/shikhu-inquiry answers, then writes quiz questions
+from the question with `shikhu generate-from-study <file>`), and run `shikhu quiz`.
 
 **Ship a change (the push gate)**
 1. Code on a branch as usual, with the agent.
