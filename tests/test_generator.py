@@ -1,5 +1,11 @@
 """Tests for generator helpers, specifically answer-position shuffling in _quiz_to_rows."""
 
+import json
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from shikhu import generator, openrouter
 from shikhu.generator import MCQuestion, Quiz, _quiz_to_rows
 
 
@@ -53,13 +59,6 @@ def test_all_choices_preserved():
 
 # --- OpenRouter request path ---
 
-import json  # noqa: E402
-from unittest.mock import MagicMock, patch  # noqa: E402
-
-import pytest  # noqa: E402
-
-from shikhu import generator, openrouter  # noqa: E402
-
 _QUIZ_JSON = json.dumps(
     {"questions": [{"question": "Why?", "choices": ["a", "b", "c", "d"], "correct_index": 2}]}
 )
@@ -88,14 +87,13 @@ def test_quiz_request_shape(monkeypatch):
     payload = post.call_args.kwargs["json"]
     assert url == "https://openrouter.ai/api/v1/chat/completions"
     assert headers["Authorization"] == "Bearer test-key"
-    assert payload["model"] == "inception/mercury-3"
+    assert payload["model"] == "openai/gpt-6-luna"
     assert payload["messages"] == [{"role": "user", "content": "prompt"}]
     assert payload["response_format"]["type"] == "json_schema"
     assert payload["response_format"]["json_schema"]["strict"] is True
     assert payload["provider"] == {"require_parameters": True}
     assert "reasoning_effort" not in payload
-    # Mercury's reasoning would eat max_tokens and truncate the JSON.
-    assert payload["reasoning"] == {"effort": "none"}
+    assert "reasoning" not in payload
     assert quiz.questions[0].correct_index == 2
     assert stats["model"] == "inception/mercury-2.5"
     assert stats["completion_tokens"] == 5
@@ -143,14 +141,14 @@ def test_shikhu_model_override(monkeypatch):
 
 def test_quiz_schema_is_strict_compatible():
     """Every object in the schema forbids extra keys, as OpenAI strict structured outputs require."""
-    schema = generator.RESPONSE_SCHEMA["schema"]
+    schema = generator.RESPONSE_SCHEMA_"schema"]
     objects = [schema, *schema.get("$defs", {}).values()]
     assert all(o.get("additionalProperties") is False for o in objects)
 
 
 def test_http_error_is_readable():
     with patch("shikhu.generator.requests.post", return_value=_response(status=402)):
-        with pytest.raises(RuntimeError, match="OpenRouter API error \\(HTTP 402\\)"):
+        with pytest.raises(RuntimeError, match="OpenRouter API error \\(HTTP 402\\"):
             generator.generate_quiz("prompt")
 
 
