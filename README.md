@@ -47,7 +47,7 @@ No Claude Code history in this repo? Swap the last three lines for: ask your age
 
 **Check what you know, and where you should learn more**
 
-Shikhu installs its skills, summarizes all the files in your codebase with Inception's fast Mercury diffusion model, and then uses Jev from TypeSafe AI to explore your previous conceptual queries. Each run costs a tiny amount of cents!
+Shikhu installs its skills, summarizes all the files in your codebase with OpenAI's GPT-6 Luna, and then uses Jev from TypeSafe AI to explore your previous conceptual queries. Each run costs a tiny amount of cents!
 
 The map command allows you to see what you've already tried to learn about. Notice anything here? Try to improve your conceptual engagement by asking more questions about your code.
 
@@ -147,7 +147,7 @@ The hook runs on your machine, against your local `coverage.db`, so it checks *y
 ## Privacy
 
 - Your quiz history lives in `coverage.db` in the repo, on your machine. It's gitignored.
-- File contents go to OpenRouter (by default Inception's Mercury 3) to write summaries and
+- File contents go to OpenRouter (by default OpenAI's GPT-6 Luna) to write summaries and
   questions, under your key. `.quizignore` keeps files out.
 - `shikhu map` reads your local Claude Code transcripts for this repo, and sends past prompts
   to OpenRouter for scoring only after showing the cost and asking.
@@ -195,12 +195,10 @@ Jev is TypeSafe's judgment model, which Shikhu calls through OpenRouter. Instead
 
 Jev sees your questions, past prompts, file summaries and quiz questions, never your source code.
 
-**How does Shikhu use Mercury?**
+**Which model does Shikhu use?**
 
-Mercury 3 is Inception's diffusion language model: instead of writing one token at a time, it refines the whole answer in parallel, which makes it fast and cheap. Shikhu calls it through OpenRouter for two jobs:
+By default, GPT-6 Luna, OpenAI's small low-cost model. Earlier versions used Inception's Mercury 3, which was removed from OpenRouter in November 2026. Shikhu calls Luna through OpenRouter for two jobs:
 - **Summaries** (`shikhu summarize`): a short summary of each file, cached and only redone when the file changes.
 - **Quiz questions** (`refresh`, `generate-from-study`): written as structured JSON (a question, four choices, one answer) from your code and the questions you asked. The writer follows rules for exactly one true answer and similar-length choices, and on a branch it sees the diff so the questions are about your change.
-
-Mercury is super super fast and cheap, so it's great for summarizing code and generating good questions.
 
 You can point Shikhu at another model with `SHIKHU_MODEL` (experimental; it needs to support structured outputs).

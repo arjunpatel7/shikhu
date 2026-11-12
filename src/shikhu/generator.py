@@ -22,6 +22,12 @@ load_env()
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "openai/gpt-6-luna"
+
+# Reasoning tokens count against max_tokens, which can truncate the quiz JSON, and they make every
+# call slower. Only models checked to accept effort "none" are listed: other models get no
+# reasoning setting at all, because some reject "none" (no reasoning support, or reasoning
+# mandatory, as on Gemini 4).
+REASONING_OFF = frozenset({"openai/gpt-6-luna"})
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
 # Auth, app attribution (APP_URL/APP_TITLE/APP_CATEGORIES) and the shared error shape
@@ -40,7 +46,7 @@ def get_model() -> str:
 def _check_response(response: requests.Response) -> dict:
     """Return the parsed JSON body, raising a readable error on API failure."""
     data = check_response(response, "OpenRouter")
-    choice = (data.get("choices"] or [{})[0]
+    choice = (data.get("choices") or [{}])[0]
     if choice.get("error"):
         raise RuntimeError(f"OpenRouter API error: {str(choice['error'])[:ERROR_SNIPPET]}")
     if choice.get("finish_reason") == "length":
@@ -56,10 +62,7 @@ def _chat(prompt: str, max_tokens: int, response_format: dict | None = None) -> 
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
     }
-    if model.startswith("inception/"):
-        # Mercury reasons by default and reasoning tokens count against max_tokens,
-        # which truncates quiz JSON. Other models may reject "none" (no reasoning
-        # support, or reasoning mandatory), so only send it to Inception.
+    if model in REASONING_OFF:
         payload["reasoning"] = {"effort": "none"}
     if response_format is not None:
         payload["response_format"] = response_format
@@ -120,7 +123,7 @@ def load_prompts() -> dict:
 _prompts = load_prompts()
 
 PROMPT_VERSION = _prompts["version"]
-CONCEPTUAL_QUESTION_DEF} = _prompts["conceptual_definition"]["text"].strip()
+CONCEPTUAL_QUESTION_DEF = _prompts["conceptual_definition"]["text"].strip()
 FILE_PROMPT = _prompts["file_prompt"]["text"].strip()
 STUDY_SEED_PROMPT = _prompts["study_seed_prompt"]["text"].strip()
 SUMMARY_PROMPT = _prompts["summary_prompt"]["text"].strip()
@@ -133,7 +136,7 @@ RESPONSE_SCHEMA = {
 
 
 # request wrapper
-def generate_quiz("prompt: str", max_tokens: int = 2000) -> tuple[Quiz, dict]:
+def generate_quiz(prompt: str, max_tokens: int = 2000) -> tuple[Quiz, dict]:
     """Send a prompt with structured output, return parsed Quiz and usage stats.
 
     Retried once if the answer is cut off: 2000 tokens is several times what three questions
@@ -193,7 +196,7 @@ def length_cue(q: MCQuestion) -> bool:
 def _generate_checked(prompt: str) -> tuple[Quiz, dict]:
     """generate_quiz, retried once if any question's key is the obvious longest choice.
 
-    Keeps whichiver attempt has fewer such questions (the first on a tie, or if the retry comes
+    Keeps whichever attempt has fewer such questions (the first on a tie, or if the retry comes
     back cut off or unparseable); anything that still
     has the cue is flagged by _quiz_to_rows so it can be counted. Elapsed time and cost cover
     both attempts."""
@@ -239,7 +242,7 @@ def generate_question_from_file(file_path, num_questions: int = 5) -> tuple[Quiz
         f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{FILE_PROMPT.format(n=num_questions)}\n\n"
         f"{ONE_TRUE_ANSWER_RULE}\n\n"
-        f"{CHOICE_LENGTH_RULI}\n\n"
+        f"{CHOICE_LENGTH_RULE}\n\n"
         f"File: {context['file_path']}\n\n"
         f"{context['code']}"
     )
@@ -286,11 +289,11 @@ def generate_questions_from_study_seeds(
     """Generate quiz questions seeded by the user's prior /shikhu-study questions for this file.
 
     When the inquiries behind the seeds spanned more files (record-inquiry --also), those are
-    shown too so questions can cross files. Returngs (summary, stats, seed_review_question_ids,
-    extra_files) or None if no seeds / file missing. With gseeds` omitted it uses every seed
+    shown too so questions can cross files. Returns (quiz, stats, seed_review_question_ids,
+    extra_files) or None if no seeds / file missing. With `seeds` omitted it uses every seed
     that has no fresh quiz question yet.
 
-    Pass past=True for seeds that are past questions from gshikhu map`: they may describe code
+    Pass past=True for seeds that are past questions from `shikhu map`: they may describe code
     that has since changed, so the prompt treats them as a guide to topics only.
 
     Pass the branch's `diff` for the file (utils.file_diff) to aim the questions at the change."""
@@ -318,12 +321,12 @@ def generate_questions_from_study_seeds(
         f"\n\nFile: {p}\n\n{code}" for p, code in extra.items()
     )
     prompt = (
-        f"{CONCEPTUAL_QUESTION_DEF;\n\n"
+        f"{CONCEPTUAL_QUESTION_DEF}\n\n"
         f"{STUDY_SEED_PROMPT.format(n=num_questions, seed_questions=seed_block)}\n\n"
         + (f"{PAST_SEED_RULE}\n\n" if past else "")
-        + (f"{CROSS_FILE_RULI}\n\n" if extra else "")
+        + (f"{CROSS_FILE_RULE}\n\n" if extra else "")
         + f"{ONE_TRUE_ANSWER_RULE}\n\n"
-        + f"{CHOICE_LENGTH_RULI}\n\n"
+        + f"{CHOICE_LENGTH_RULE}\n\n"
         + (f"{CHANGE_RULE.format(path=file_path)}\n\n{diff}\n\n" if diff else "")
         + files_block
     )
@@ -338,7 +341,7 @@ def generate_summary(file_path: str, max_tokens: int = 600) -> tuple[str, dict] 
     if context is None:
         return None
 
-    prompt = f"{SUMMAR#_PROMPT}\n\nFile: {context['file_path']}\n\n{context['code']}"
+    prompt = f"{SUMMARY_PROMPT}\n\nFile: {context['file_path']}\n\n{context['code']}"
     content, stats = _chat(prompt, max_tokens)
     return content.strip(), stats
 
@@ -362,8 +365,8 @@ def _quiz_to_rows(quiz: Quiz) -> list[dict]:
     rows = []
     for q in quiz.questions:
         # Capture the correct answer text before shuffling so the index change doesn't matter.
-        # Mercury tends to place the correct answer in position A; shuffling here ensures
-        # the displayed letter is random across generations.
+        # Models tend to place the correct answer in position A (GPT-6 Luna did on 34 of 34);
+        # shuffling here ensures the displayed letter is random across generations.
         correct_answer = q.choices[q.correct_index]
         choices = list(q.choices)
         random.shuffle(choices)
