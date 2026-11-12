@@ -65,7 +65,7 @@ _QUIZ_JSON = json.dumps(
 )
 
 
-def _response(content=_QUIZ_JSON, status=200, finish_reason="stop", model="inception/mercury-2.5"):
+def _response(content=_QUIZ_JSON, status=200, finish_reason="stop", model="openai/gpt-6-luna"):
     resp = MagicMock()
     resp.status_code = status
     resp.text = "error body"
@@ -88,16 +88,16 @@ def test_quiz_request_shape(monkeypatch):
     payload = post.call_args.kwargs["json"]
     assert url == "https://openrouter.ai/api/v1/chat/completions"
     assert headers["Authorization"] == "Bearer test-key"
-    assert payload["model"] == "inception/mercury-3"
+    assert payload["model"] == "openai/gpt-6-luna"
     assert payload["messages"] == [{"role": "user", "content": "prompt"}]
     assert payload["response_format"]["type"] == "json_schema"
     assert payload["response_format"]["json_schema"]["strict"] is True
     assert payload["provider"] == {"require_parameters": True}
     assert "reasoning_effort" not in payload
-    # Mercury's reasoning would eat max_tokens and truncate the JSON.
+    # Reasoning tokens would eat max_tokens and truncate the JSON.
     assert payload["reasoning"] == {"effort": "none"}
     assert quiz.questions[0].correct_index == 2
-    assert stats["model"] == "inception/mercury-2.5"
+    assert stats["model"] == "openai/gpt-6-luna"
     assert stats["completion_tokens"] == 5
 
 
@@ -131,13 +131,13 @@ def test_summary_request_has_no_response_format(tmp_path):
 
 
 def test_shikhu_model_override(monkeypatch):
-    """SHIKHU_MODEL is read per call and sent as the model id, without Mercury's reasoning override."""
+    """SHIKHU_MODEL is read per call and sent as the model id, with no reasoning setting for an unknown model."""
     monkeypatch.setenv("SHIKHU_MODEL", "openai/gpt-5-mini")
     with patch("shikhu.generator.requests.post", return_value=_response()) as post:
         generator.generate_quiz("prompt")
     payload = post.call_args.kwargs["json"]
     assert payload["model"] == "openai/gpt-5-mini"
-    # Non-Inception models may reject effort=none (no reasoning, or reasoning mandatory).
+    # Unknown models may reject effort=none (no reasoning, or reasoning mandatory).
     assert "reasoning" not in payload
 
 

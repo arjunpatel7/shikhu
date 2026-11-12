@@ -90,7 +90,7 @@ def test_when_the_retry_is_no_better_the_first_attempt_is_kept():
 
 @pytest.mark.parametrize("failure", ["cut off", "empty"])
 def test_a_failed_retry_keeps_the_first_attempt(failure):
-    """Mercury 2.5 sometimes answers the retry with an empty or cut-off reply (2026-11-02)."""
+    """A model sometimes answers the retry with an empty or cut-off reply (2026-11-02)."""
     calls = []
 
     def fake(prompt):

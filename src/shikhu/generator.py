@@ -21,7 +21,13 @@ from shikhu.store import read_file_lines
 load_env()
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "inception/mercury-3"
+DEFAULT_MODEL = "openai/gpt-6-luna"
+
+# Reasoning tokens count against max_tokens, which can truncate the quiz JSON, and they make every
+# call slower. Only models checked to accept effort "none" are listed: other models get no
+# reasoning setting at all, because some reject "none" (no reasoning support, or reasoning
+# mandatory, as on Gemini 4).
+REASONING_OFF = frozenset({"openai/gpt-6-luna"})
 REQUEST_TIMEOUT = 120  # seconds — one hung connection must not stall a whole refresh
 
 # Auth, app attribution (APP_URL/APP_TITLE/APP_CATEGORIES) and the shared error shape
@@ -56,10 +62,7 @@ def _chat(prompt: str, max_tokens: int, response_format: dict | None = None) -> 
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
     }
-    if model.startswith("inception/"):
-        # Mercury reasons by default and reasoning tokens count against max_tokens,
-        # which truncates quiz JSON. Other models may reject "none" (no reasoning
-        # support, or reasoning mandatory), so only send it to Inception.
+    if model in REASONING_OFF:
         payload["reasoning"] = {"effort": "none"}
     if response_format is not None:
         payload["response_format"] = response_format
@@ -362,8 +365,8 @@ def _quiz_to_rows(quiz: Quiz) -> list[dict]:
     rows = []
     for q in quiz.questions:
         # Capture the correct answer text before shuffling so the index change doesn't matter.
-        # Mercury tends to place the correct answer in position A; shuffling here ensures
-        # the displayed letter is random across generations.
+        # Models tend to place the correct answer in position A (GPT-6 Luna did on 34 of 34);
+        # shuffling here ensures the displayed letter is random across generations.
         correct_answer = q.choices[q.correct_index]
         choices = list(q.choices)
         random.shuffle(choices)

@@ -143,8 +143,8 @@ def test_get_conceptual_study_questions_for_file():
 def test_insert_questions_records_model():
     """insert_questions stores which model generated each question."""
     q = [{"question_text": "Q", "choices": ["A", "B", "C", "D"], "expected_answer": "A"}]
-    [qid] = store.insert_questions("m.py", q, prompt_version="v4", model="inception/mercury-2.5")
+    [qid] = store.insert_questions("m.py", q, prompt_version="v4", model="openai/gpt-6-luna")
     conn = store._get_conn()
     row = conn.execute("SELECT model FROM questions WHERE id = ?", (qid,)).fetchone()
     conn.close()
-    assert row["model"] == "inception/mercury-2.5"
+    assert row["model"] == "openai/gpt-6-luna"

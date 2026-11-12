@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="100%" role="img" aria-labelledby="title desc">
   <title id="title">What happens when you ask Shikhu's skill a question</title>
-  <desc id="desc">1. You ask your agent why save() writes to a temp file first; it answers from storage.py and you confirm, so the question is saved as a seed. 2. Shikhu sends your question, the whole file, and on a branch the diff, to Mercury 3, which writes a multiple-choice question. 3. You answer it in the terminal and rate it good, it becomes a golden question, and storage.py counts as covered. Editing the file later makes the golden stale until you re-check it.</desc>
+  <desc id="desc">1. You ask your agent why save() writes to a temp file first; it answers from storage.py and you confirm, so the question is saved as a seed. 2. Shikhu sends your question, the whole file, and on a branch the diff, to GPT-6 Luna, which writes a multiple-choice question. 3. You answer it in the terminal and rate it good, it becomes a golden question, and storage.py counts as covered. Editing the file later makes the golden stale until you re-check it.</desc>
   <style>
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .h { font-size: 14px; font-weight: 700; fill: #22472B; }
@@ -65,7 +65,7 @@
   <text class="t" x="338" y="142">+ the diff, when you're on a branch</text>
   <line class="arr" x1="450" y1="154" x2="450" y2="170" marker-end="url(#a)"/>
   <rect class="amber" x="324" y="172" width="252" height="32" rx="8"/>
-  <text class="t ambert" x="338" y="193" font-weight="600">Mercury 3 <tspan class="ambers" font-weight="400">writes it, one true answer</tspan></text>
+  <text class="t ambert" x="338" y="193" font-weight="600">GPT-6 Luna <tspan class="ambers" font-weight="400">writes it, one true answer</tspan></text>
   <line class="arr" x1="450" y1="206" x2="450" y2="222" marker-end="url(#a)"/>
   <rect class="card" x="324" y="224" width="252" height="134" rx="10"/>
   <text class="t" x="338" y="245" font-weight="600">Why does save() write to a temp</text>
